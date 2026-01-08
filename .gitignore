@@ -136,3 +136,51 @@ cython_debug/
 
 # VS Code
 .vscode/
+
+# ============================================
+# PROJECT SPECIFIC - Psychologist AI
+# ============================================
+
+# Large datasets (never commit raw data)
+data/*/train/
+data/*/val/
+data/*/test/
+data/**/*.jpg
+data/**/*.png
+data/**/*.wav
+data/**/*.mp3
+data/**/*.mp4
+data/**/*.csv
+data/**/*.json
+
+# Trained models (too large for git)
+models/*.pth
+models/*.h5
+models/*.pkl
+models/*.onnx
+
+# Keep only config files in models/
+!models/*_config.json
+!models/*_labels.json
+!models/README.md
+
+# Training outputs
+reports/*.png
+reports/*.jpg
+reports/*.pdf
+reports/training_history_*.json
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Wandb experiment tracking
+wandb/
+
+# Tensorboard logs
+runs/
+logs/
+
+# Mac
+.DS_Store
