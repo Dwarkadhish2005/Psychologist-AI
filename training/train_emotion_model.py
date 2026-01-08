@@ -48,8 +48,8 @@ class Config:
     
     # Model
     INPUT_SIZE = 48
-    NUM_CLASSES = 5
-    CLASS_NAMES = ['angry', 'happy', 'sad', 'surprise', 'neutral']
+    NUM_CLASSES = None  # Will be auto-detected from dataset
+    CLASS_NAMES = None  # Will be auto-detected from dataset
     
     # Training
     BATCH_SIZE = 32
@@ -107,7 +107,7 @@ class EmotionDataset(Dataset):
                     self.images.append(img_path)
                     self.labels.append(self.class_to_idx[class_name])
         
-        print(f"✓ Loaded {len(self.images)} images from {root_dir}")
+        print(f"[OK] Loaded {len(self.images)} images from {root_dir}")
         print(f"  Class distribution: {self._get_class_distribution()}")
     
     def _get_class_distribution(self):
@@ -282,7 +282,7 @@ def plot_training_history(history, save_path):
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=150)
-    print(f"✓ Training plot saved to {save_path}")
+    print(f" Training plot saved to {save_path}")
 
 
 def plot_confusion_matrix(cm, class_names, save_path):
@@ -297,7 +297,7 @@ def plot_confusion_matrix(cm, class_names, save_path):
     plt.xlabel('Predicted Label')
     plt.tight_layout()
     plt.savefig(save_path, dpi=150)
-    print(f"✓ Confusion matrix saved to {save_path}")
+    print(f" Confusion matrix saved to {save_path}")
 
 
 # ============================================
@@ -345,6 +345,11 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=2)
     test_loader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=2)
     
+    # Auto-detect number of classes and class names from dataset
+    config.NUM_CLASSES = len(train_dataset.classes)
+    config.CLASS_NAMES = train_dataset.classes
+    print(f"\n[OK] Detected {config.NUM_CLASSES} classes: {', '.join(config.CLASS_NAMES)}")
+    
     # ========== Build Model ==========
     print("\nBuilding model...")
     model = EmotionCNN(num_classes=config.NUM_CLASSES, input_size=config.INPUT_SIZE)
@@ -355,7 +360,7 @@ def main():
     # ========== Loss & Optimizer ==========
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5, verbose=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5)
     
     # ========== Training Loop ==========
     print(f"\nTraining for {config.NUM_EPOCHS} epochs...")
@@ -398,7 +403,7 @@ def main():
             best_val_acc = val_acc
             patience_counter = 0
             torch.save(model.state_dict(), os.path.join(config.MODEL_DIR, 'emotion_cnn_best.pth'))
-            print(f"  ✓ Saved best model (val_acc: {val_acc:.2f}%)")
+            print(f"  Saved best model (val_acc: {val_acc:.2f}%)")
         else:
             patience_counter += 1
         
@@ -454,7 +459,7 @@ def main():
     plot_confusion_matrix(cm, config.CLASS_NAMES, os.path.join(config.REPORTS_DIR, f'confusion_matrix_{timestamp}.png'))
     
     print("\n" + "=" * 60)
-    print("✅ TRAINING COMPLETE!")
+    print("[OK] TRAINING COMPLETE!")
     print("=" * 60)
     print(f"Best model saved to: {config.MODEL_DIR}/emotion_cnn_best.pth")
     print(f"Reports saved to: {config.REPORTS_DIR}/")

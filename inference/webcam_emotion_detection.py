@@ -48,7 +48,7 @@ class Config:
     
     # Model params
     INPUT_SIZE = 48
-    NUM_CLASSES = 5
+    NUM_CLASSES = 7  # Default, will be overridden from config file
     
     # Face detection
     FACE_CASCADE = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
@@ -79,6 +79,14 @@ class EmotionDetector:
     
     def __init__(self, config):
         self.config = config
+        
+        # Load config file first to get num_classes
+        if os.path.exists(config.CONFIG_PATH):
+            print("Loading model config...")
+            with open(config.CONFIG_PATH, 'r') as f:
+                model_config = json.load(f)
+            self.config.NUM_CLASSES = model_config.get('num_classes', 7)
+            print(f"  Detected {self.config.NUM_CLASSES} classes")
         
         # Load model
         print("Loading model...")
@@ -120,8 +128,8 @@ class EmotionDetector:
     def _load_labels(self):
         """Load label mappings"""
         if not os.path.exists(self.config.LABELS_PATH):
-            # Use default labels
-            return {0: 'angry', 1: 'happy', 2: 'sad', 3: 'surprise', 4: 'neutral'}
+            # Use default labels for 7 classes
+            return {0: 'angry', 1: 'disgust', 2: 'fear', 3: 'happy', 4: 'neutral', 5: 'sad', 6: 'surprise'}
         
         with open(self.config.LABELS_PATH, 'r') as f:
             labels_dict = json.load(f)
@@ -257,7 +265,7 @@ def main():
     cap = cv2.VideoCapture(0)
     
     if not cap.isOpened():
-        print("❌ Error: Could not open webcam!")
+        print(" Error: Could not open webcam!")
         return
     
     print("\n✓ Webcam opened successfully")
@@ -275,7 +283,7 @@ def main():
             ret, frame = cap.read()
             
             if not ret:
-                print("❌ Error: Failed to read frame")
+                print(" Error: Failed to read frame")
                 break
             
             # Detect faces
@@ -350,7 +358,7 @@ def main():
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"reports/screenshot_{timestamp}.jpg"
             cv2.imwrite(filename, annotated_frame)
-            print(f"✓ Screenshot saved: {filename}")
+            print(f" Screenshot saved: {filename}")
         elif key == ord('p'):
             # Pause/Resume
             paused = not paused
@@ -359,7 +367,7 @@ def main():
     # Cleanup
     cap.release()
     cv2.destroyAllWindows()
-    print("\n✅ Emotion detection stopped")
+    print("\n Emotion detection stopped")
 
 
 # ============================================
@@ -372,6 +380,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n Error: {e}")
         import traceback
         traceback.print_exc()
