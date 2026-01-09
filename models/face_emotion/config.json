@@ -1,0 +1,21 @@
+{
+    "input_size": [
+        1,
+        48,
+        48
+    ],
+    "num_classes": 7,
+    "class_names": [
+        "angry",
+        "disgust",
+        "fear",
+        "happy",
+        "neutral",
+        "sad",
+        "surprise"
+    ],
+    "architecture": "EmotionCNN",
+    "best_val_acc": 63.81909547738694,
+    "test_acc": 62.56617442184452,
+    "timestamp": "20260108_235349"
+}

@@ -299,4 +299,4 @@ if __name__ == "__main__":
     print(f"✓ Train transforms: {len(train_transform.transforms)} steps")
     print(f"✓ Val transforms: {len(val_transform.transforms)} steps")
     
-    print("\n✅ All preprocessing utilities working!")
+    print("\n All preprocessing utilities working!")
