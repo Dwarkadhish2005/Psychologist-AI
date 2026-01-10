@@ -1,0 +1,17 @@
+{
+    "num_classes": 5,
+    "class_names": [
+        "angry",
+        "fear",
+        "happy",
+        "neutral",
+        "sad"
+    ],
+    "sample_rate": 16000,
+    "window_duration": 3.0,
+    "hop_duration": 1.5,
+    "feature_type": "mfcc+prosodic",
+    "architecture": "VoiceEmotionCNN",
+    "stress_levels": ["low", "medium", "high"],
+    "note": "Phase 2: Voice Emotion Recognition - Parallel to Phase 1 (Face)"
+}
