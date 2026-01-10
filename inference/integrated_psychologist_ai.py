@@ -7,11 +7,14 @@ Architecture:
     Phase 1: Face emotion detection (dual model)
     Phase 2: Voice emotion + stress detection
     Phase 3: Multi-modal fusion & psychological reasoning
+    Phase 4: Long-term cognitive layer (personality, baseline, deviations)
 
 Output:
-    - Real-time psychological state
-    - Risk assessment
-    - Explanations & recommendations
+    - Real-time psychological state (Phase 3)
+    - Personality traits (Phase 4)
+    - Behavioral baseline (Phase 4)
+    - Deviation alerts (Phase 4)
+    - Personalized risk assessment (Phase 4)
 
 Usage:
     python inference/integrated_psychologist_ai.py
@@ -37,9 +40,10 @@ sys.path.append(str(Path(__file__).parent.parent))
 from training.model import EmotionCNN
 from training.preprocessing import preprocess_face
 from training.voice.audio_preprocessing import normalize_audio
-from training.voice.feature_extraction import extract_all_features
+from training.voice.feature_extraction import extract_all_features, extract_stress_score
 from training.voice.voice_emotion_model import VoiceEmotionSystem
 from inference.phase3_multimodal_fusion import Phase3MultiModalFusion, format_psychological_state
+from inference.phase4_cognitive_layer import Phase4CognitiveFusion
 
 
 # ============================================
@@ -205,11 +209,11 @@ class VoiceEmotionDetector:
         
         # Extract features
         try:
-            features = extract_all_features(audio, self.sample_rate)
+            _, features = extract_all_features(audio, self.sample_rate)  # Unpack tuple
             if features is None:
                 return 'neutral', 0.5, 'low', 0.5, 0.5
             
-            # Ensure features is a 1D numpy array
+            # Ensure features is a 1D numpy array (already flattened by extract_all_features)
             features = np.array(features, dtype=np.float32).flatten()
             
             # Check for NaN/inf
@@ -222,6 +226,16 @@ class VoiceEmotionDetector:
             
             features_tensor = torch.FloatTensor(features).unsqueeze(0).to(self.device)
             
+            # Extract stress-specific features (4 values)
+            stress_result = extract_stress_score(audio, self.sample_rate)
+            stress_features = np.array([
+                stress_result['jitter'],
+                stress_result['shimmer'],
+                stress_result['spectral_flatness'],
+                stress_result['pitch_variance']
+            ], dtype=np.float32)
+            stress_features_tensor = torch.FloatTensor(stress_features).unsqueeze(0).to(self.device)
+            
             with torch.no_grad():
                 # Emotion prediction
                 emotion_output = self.system.emotion_model(features_tensor)
@@ -230,16 +244,15 @@ class VoiceEmotionDetector:
                 emotion = self.system.emotion_model.class_names[emotion_idx]
                 emotion_confidence = emotion_probs[emotion_idx]
                 
-                # Stress prediction
-                stress_output = self.system.stress_detector(features_tensor)
-                stress_prob = torch.sigmoid(stress_output).cpu().numpy()[0][0]
+                # Stress prediction (using 4 stress-specific features)
+                stress_output = self.system.stress_detector(stress_features_tensor)
+                stress_probs = torch.softmax(stress_output, dim=1).cpu().numpy()[0]
+                stress_idx = np.argmax(stress_probs)
+                stress_prob = stress_probs[stress_idx]
                 
-                if stress_prob < 0.33:
-                    stress_level = 'low'
-                elif stress_prob < 0.67:
-                    stress_level = 'medium'
-                else:
-                    stress_level = 'high'
+                # Map index to stress level: 0=low, 1=medium, 2=high
+                stress_levels = ['low', 'medium', 'high']
+                stress_level = stress_levels[stress_idx]
                 
                 # Audio quality (simple SNR estimate)
                 audio_quality = min(1.0, np.std(audio) * 10)
@@ -329,6 +342,14 @@ class IntegratedPsychologistAI:
         # Initialize Phase 3 (Fusion)
         self.phase3 = Phase3MultiModalFusion()
         
+        # Initialize Phase 4 (Cognitive Layer)
+        self.phase4 = Phase4CognitiveFusion(
+            user_id="default_user",
+            storage_dir="data/user_memory"
+        )
+        
+        print("✓ Phase 4 loaded: Cognitive Layer (Personality, Baseline, Deviations)")
+        
         print(f"\nDevice: {self.config.DEVICE}")
         print("=" * 70)
         
@@ -338,6 +359,7 @@ class IntegratedPsychologistAI:
         
         # Latest state
         self.latest_state = None
+        self.latest_phase4_profile = None
         self.frame_count = 0
         self.start_time = time.time()
     
@@ -378,6 +400,9 @@ class IntegratedPsychologistAI:
             stress_confidence=stress_confidence
         )
         
+        # Phase 4: Process through cognitive layer for personality & deviations
+        self.latest_phase4_profile = self.phase4.process_state(self.latest_state)
+        
         return frame
     
     def draw_info_panel(self, frame):
@@ -385,9 +410,9 @@ class IntegratedPsychologistAI:
         if self.latest_state is None:
             return frame
         
-        # Create info panel
+        # Create larger info panel for Phase 4 data
         h, w = frame.shape[:2]
-        panel_width = self.config.INFO_PANEL_WIDTH
+        panel_width = 450  # Increased from 400
         
         # Expand frame to add panel
         expanded = np.zeros((h, w + panel_width, 3), dtype=np.uint8)
@@ -396,65 +421,117 @@ class IntegratedPsychologistAI:
         
         # Draw info
         state = self.latest_state
+        phase4 = self.latest_phase4_profile
         x_offset = w + 10
-        y_offset = 30
-        line_height = 25
+        y_offset = 20
+        line_height = 22
         
-        def draw_text(text, y, color=(255, 255, 255), size=0.5, bold=False):
+        def draw_text(text, y, color=(255, 255, 255), size=0.45, bold=False):
             thickness = 2 if bold else 1
             cv2.putText(expanded, text, (x_offset, y), 
                        cv2.FONT_HERSHEY_SIMPLEX, size, color, thickness)
         
-        # Title
-        draw_text("PSYCHOLOGICAL STATE", y_offset, (0, 255, 255), 0.6, True)
-        y_offset += line_height + 10
+        # ===== PHASE 3: CURRENT STATE =====
+        draw_text("=== CURRENT STATE (PHASE 3) ===", y_offset, (0, 255, 255), 0.5, True)
+        y_offset += line_height + 5
         
         # Dominant emotion
         emotion_color = self.get_emotion_color(state.dominant_emotion)
-        draw_text(f"Emotion: {state.dominant_emotion.upper()}", y_offset, emotion_color, 0.6, True)
+        draw_text(f"Emotion: {state.dominant_emotion.upper()}", y_offset, emotion_color, 0.5, True)
         y_offset += line_height
         
         # Hidden emotion
         if state.hidden_emotion:
-            draw_text(f"Hidden: {state.hidden_emotion}", y_offset, (150, 150, 255), 0.5)
+            draw_text(f"Hidden: {state.hidden_emotion}", y_offset, (150, 150, 255), 0.45)
             y_offset += line_height
         
         # Mental state
-        y_offset += 5
         mental_state_text = state.mental_state.value.replace('_', ' ').title()
-        draw_text(f"State: {mental_state_text}", y_offset, (255, 200, 100), 0.55, True)
+        draw_text(f"State: {mental_state_text}", y_offset, (255, 200, 100), 0.5)
+        y_offset += line_height
+        
+        # Risk level (Phase 3)
+        risk_color = self.get_risk_color(state.risk_level.value)
+        draw_text(f"Risk (P3): {state.risk_level.value.upper()}", y_offset, risk_color, 0.5, True)
+        y_offset += line_height
+        
+        # Confidence & Stability
+        draw_text(f"Confidence: {state.confidence*100:.0f}% | Stability: {state.stability_score*100:.0f}%", 
+                 y_offset, (200, 200, 200), 0.42)
         y_offset += line_height + 10
         
-        # Metrics
-        draw_text(f"Confidence: {state.confidence*100:.0f}%", y_offset, (200, 200, 200), 0.5)
-        y_offset += line_height
+        # ===== PHASE 4: PERSONALIZED ANALYSIS =====
+        if phase4:
+            draw_text("=== PHASE 4: PERSONALITY ===", y_offset, (255, 150, 255), 0.5, True)
+            y_offset += line_height + 5
+            
+            pers = phase4.personality
+            if pers.confidence > 0.3:
+                draw_text(f"Reactivity: {pers.emotional_reactivity:.2f}", y_offset, (200, 200, 200), 0.42)
+                y_offset += line_height - 3
+                draw_text(f"Tolerance: {pers.stress_tolerance:.2f}", y_offset, (200, 200, 200), 0.42)
+                y_offset += line_height - 3
+                draw_text(f"Stability: {pers.emotional_stability:.2f}", y_offset, (200, 200, 200), 0.42)
+                y_offset += line_height - 3
+                draw_text(f"Mood: {pers.baseline_mood}", y_offset, (200, 200, 200), 0.42)
+                y_offset += line_height - 3
+                draw_text(f"({pers.data_days}d, {pers.confidence:.0%} conf)", y_offset, (150, 150, 150), 0.38)
+            else:
+                draw_text("Building profile...", y_offset, (150, 150, 150), 0.42)
+            
+            y_offset += line_height + 8
+            
+            # Deviations
+            draw_text("=== DEVIATIONS ===", y_offset, (255, 100, 100), 0.5, True)
+            y_offset += line_height + 3
+            
+            if phase4.deviations:
+                for dev in phase4.deviations[:3]:  # Top 3
+                    dev_text = dev.deviation_type.replace('_', ' ')[:20]
+                    sev_pct = f"{dev.severity*100:.0f}%"
+                    color = (0, 0, 255) if dev.severity > 0.7 else (0, 165, 255) if dev.severity > 0.4 else (0, 255, 255)
+                    draw_text(f"! {dev_text}: {sev_pct}", y_offset, color, 0.4)
+                    y_offset += line_height - 4
+            else:
+                draw_text("No unusual behavior", y_offset, (100, 255, 100), 0.42)
+                y_offset += line_height - 2
+            
+            y_offset += 8
+            
+            # Adjusted Risk
+            draw_text("=== ADJUSTED RISK ===", y_offset, (100, 255, 255), 0.5, True)
+            y_offset += line_height + 3
+            
+            adj_risk_color = self.get_risk_color(phase4.adjusted_risk.value)
+            draw_text(f"Risk (P4): {phase4.adjusted_risk.value.upper()}", y_offset, adj_risk_color, 0.5, True)
+            y_offset += line_height
+            
+            # Risk adjustment reason (wrap text)
+            reason = phase4.risk_adjustment_reason
+            if len(reason) > 35:
+                # Split into two lines
+                words = reason.split()
+                line1 = ""
+                line2 = ""
+                for word in words:
+                    if len(line1) < 35:
+                        line1 += word + " "
+                    else:
+                        line2 += word + " "
+                draw_text(line1.strip(), y_offset, (180, 180, 180), 0.38)
+                y_offset += line_height - 5
+                if line2:
+                    draw_text(line2.strip(), y_offset, (180, 180, 180), 0.38)
+                    y_offset += line_height - 5
+            else:
+                draw_text(reason, y_offset, (180, 180, 180), 0.4)
+                y_offset += line_height
         
-        draw_text(f"Stability: {state.stability_score*100:.0f}%", y_offset, (200, 200, 200), 0.5)
-        y_offset += line_height
-        
-        # Risk level
-        risk_color = self.get_risk_color(state.risk_level.value)
-        draw_text(f"Risk: {state.risk_level.value.upper()}", y_offset, risk_color, 0.55, True)
-        y_offset += line_height + 15
-        
-        # Explanations
-        draw_text("Reasoning:", y_offset, (200, 200, 200), 0.5, True)
-        y_offset += line_height
-        
-        for i, explanation in enumerate(state.explanations[:5], 1):  # Show first 5
-            # Wrap text if too long
-            if len(explanation) > 35:
-                explanation = explanation[:32] + "..."
-            draw_text(f"{i}. {explanation}", y_offset, (180, 180, 180), 0.4)
-            y_offset += 20
-        
-        # FPS
-        y_offset = h - 60
+        # FPS at bottom
+        y_offset = h - 40
         elapsed = time.time() - self.start_time
         fps = self.frame_count / elapsed if elapsed > 0 else 0
-        draw_text(f"FPS: {fps:.1f}", y_offset, (100, 200, 100), 0.5)
-        y_offset += line_height
-        draw_text(f"Frames: {self.frame_count}", y_offset, (100, 200, 100), 0.5)
+        draw_text(f"FPS: {fps:.1f} | Frames: {self.frame_count}", y_offset, (100, 200, 100), 0.45)
         
         return expanded
     
