@@ -443,19 +443,28 @@ class LongTermMemory:
         - Survives sessions
     """
     
-    def __init__(self, user_id: str = "default_user", storage_dir: str = "data/memory"):
+    def __init__(self, user_id: str = "default_user", storage_dir: str = "data/memory", 
+                 max_sessions_per_day: int = 10, max_days_stored: int = 90):
         """
         Initialize long-term memory for a user
         
         Args:
             user_id: Unique identifier for user
             storage_dir: Directory to store memory files
+            max_sessions_per_day: Maximum sessions per day (prevents abuse)
+            max_days_stored: Maximum days to keep in memory
         """
         self.user_id = user_id
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         
+        # Phase 4.2: Configuration
+        self.max_sessions_per_day = max_sessions_per_day
+        self.max_days_stored = max_days_stored
+        
         self.memory_file = self.storage_dir / f"{user_id}_longterm_memory.json"
+        self.archive_dir = self.storage_dir / "archive"
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
         
         # Data structures
         self.daily_profiles: Dict[str, DailyProfile] = {}  # date -> DailyProfile
@@ -479,11 +488,20 @@ class LongTermMemory:
         if date_str not in self.daily_profiles:
             self.daily_profiles[date_str] = self._create_empty_daily_profile(date_str)
         
+        # PHASE 4.2: Check session limit per day
+        if self.daily_profiles[date_str].total_sessions >= self.max_sessions_per_day:
+            print(f" Warning: Session limit reached for {date_str} ({self.max_sessions_per_day} max)")
+            print(f"   Merging into existing statistics instead of adding new session.")
+            # Still update stats but don't increment session count
+        
         # Update daily profile with session data
         self._update_daily_profile(date_str, session_metrics)
         
         # Update weekly aggregate
         self._update_weekly_aggregate(date_str)
+        
+        # PHASE 4.2: Cleanup old data and archive
+        self._cleanup_old_data()
         
         # Auto-save after each session
         self.save()
@@ -842,6 +860,237 @@ class LongTermMemory:
             "stability_trend": "↑ improving" if trends.get("stability_trend", 0) > 0.01 else "↓ declining" if trends.get("stability_trend", 0) < -0.01 else "→ stable",
             "last_updated": datetime.fromtimestamp(os.path.getmtime(self.memory_file)).strftime("%Y-%m-%d %H:%M") if self.memory_file.exists() else "Never"
         }
+    
+    # ========================================================================
+    # PHASE 4.2: SESSION LIMITS, EXPORT, AND ARCHIVE
+    # ========================================================================
+    
+    def _cleanup_old_data(self) -> None:
+        """
+        Remove data older than max_days_stored
+        Archives old data before deletion
+        """
+        cutoff_date = datetime.now() - timedelta(days=self.max_days_stored)
+        cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+        
+        # Find old daily profiles
+        old_dates = [
+            date for date in self.daily_profiles.keys()
+            if date < cutoff_str
+        ]
+        
+        if not old_dates:
+            return  # Nothing to clean up
+        
+        # Archive before deleting
+        if old_dates:
+            self._archive_data(old_dates)
+            
+            # Delete from memory
+            for date in old_dates:
+                del self.daily_profiles[date]
+            
+            print(f"🗑️ Cleaned up {len(old_dates)} days older than {self.max_days_stored} days")
+        
+        # Also clean up old weekly aggregates
+        old_weeks = [
+            week for week in self.weekly_aggregates.keys()
+            if week < cutoff_str
+        ]
+        
+        for week in old_weeks:
+            del self.weekly_aggregates[week]
+    
+    def _archive_data(self, dates: List[str]) -> None:
+        """
+        Archive old data before deletion
+        
+        Args:
+            dates: List of dates to archive
+        """
+        if not dates:
+            return
+        
+        # Create archive filename with date range
+        oldest = min(dates)
+        newest = max(dates)
+        archive_filename = f"{self.user_id}_archive_{oldest}_to_{newest}.json"
+        archive_path = self.archive_dir / archive_filename
+        
+        # Collect data to archive
+        archived_data = {
+            "user_id": self.user_id,
+            "archive_created": datetime.now().isoformat(),
+            "date_range": {
+                "start": oldest,
+                "end": newest
+            },
+            "daily_profiles": {}
+        }
+        
+        for date in dates:
+            if date in self.daily_profiles:
+                profile = self.daily_profiles[date]
+                profile_dict = asdict(profile)
+                # Convert enums to strings
+                profile_dict["dominant_mental_states"] = [
+                    [state.value, freq] for state, freq in profile.dominant_mental_states
+                ]
+                archived_data["daily_profiles"][date] = profile_dict
+        
+        # Save archive
+        with open(archive_path, 'w') as f:
+            json.dump(archived_data, f, indent=2)
+        
+        print(f"📦 Archived {len(dates)} days to {archive_filename}")
+    
+    def export_to_csv(self, filepath: str = None) -> str:
+        """
+        Export data to CSV for external analysis
+        
+        Args:
+            filepath: Output CSV path (default: auto-generated)
+            
+        Returns:
+            Path to created CSV file
+        """
+        import csv
+        
+        if filepath is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = self.storage_dir / f"{self.user_id}_export_{timestamp}.csv"
+        
+        filepath = Path(filepath)
+        
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            
+            # Header
+            writer.writerow([
+                'Date',
+                'Total_Sessions',
+                'Duration_Minutes',
+                'Avg_Stress_Ratio',
+                'Avg_High_Stress_Ratio',
+                'Avg_Confidence',
+                'Avg_Stability',
+                'Total_Masking_Events',
+                'Avg_Risk_Level',
+                'High_Risk_Duration_Ratio',
+                'Positive_Ratio',
+                'Negative_Ratio',
+                'Dominant_Mental_State'
+            ])
+            
+            # Data rows (sorted by date)
+            sorted_dates = sorted(self.daily_profiles.keys())
+            for date in sorted_dates:
+                profile = self.daily_profiles[date]
+                
+                # Get dominant mental state
+                dominant_state = profile.dominant_mental_states[0][0].value if profile.dominant_mental_states else "N/A"
+                
+                writer.writerow([
+                    date,
+                    profile.total_sessions,
+                    f"{profile.total_duration_minutes:.1f}",
+                    f"{profile.avg_stress_ratio:.4f}",
+                    f"{profile.avg_high_stress_ratio:.4f}",
+                    f"{profile.avg_confidence:.4f}",
+                    f"{profile.avg_stability:.4f}",
+                    profile.total_masking_events,
+                    f"{profile.avg_risk_level:.4f}",
+                    f"{profile.high_risk_duration_ratio:.4f}",
+                    f"{profile.positive_ratio:.4f}",
+                    f"{profile.negative_ratio:.4f}",
+                    dominant_state
+                ])
+        
+        print(f"📊 Exported data to {filepath}")
+        return str(filepath)
+    
+    def export_to_json(self, filepath: str = None) -> str:
+        """
+        Export complete data to JSON
+        
+        Args:
+            filepath: Output JSON path (default: auto-generated)
+            
+        Returns:
+            Path to created JSON file
+        """
+        if filepath is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = self.storage_dir / f"{self.user_id}_export_{timestamp}.json"
+        
+        filepath = Path(filepath)
+        
+        # Prepare export data (same as save but with metadata)
+        daily_data = {}
+        for date, profile in self.daily_profiles.items():
+            profile_dict = asdict(profile)
+            profile_dict["dominant_mental_states"] = [
+                [state.value, freq] for state, freq in profile.dominant_mental_states
+            ]
+            daily_data[date] = profile_dict
+        
+        weekly_data = {}
+        for week, agg in self.weekly_aggregates.items():
+            agg_dict = asdict(agg)
+            agg_dict["dominant_mental_states"] = [
+                [state.value, freq] for state, freq in agg.dominant_mental_states
+            ]
+            agg_dict["dominant_emotions"] = [
+                [emotion, freq] for emotion, freq in agg.dominant_emotions
+            ]
+            weekly_data[week] = agg_dict
+        
+        export_data = {
+            "export_info": {
+                "user_id": self.user_id,
+                "export_date": datetime.now().isoformat(),
+                "total_days": len(self.daily_profiles),
+                "total_weeks": len(self.weekly_aggregates),
+                "date_range": {
+                    "earliest": min(self.daily_profiles.keys()) if self.daily_profiles else None,
+                    "latest": max(self.daily_profiles.keys()) if self.daily_profiles else None
+                }
+            },
+            "daily_profiles": daily_data,
+            "weekly_aggregates": weekly_data
+        }
+        
+        with open(filepath, 'w') as f:
+            json.dump(export_data, f, indent=2)
+        
+        print(f"📊 Exported data to {filepath}")
+        return str(filepath)
+    
+    def get_archive_list(self) -> List[Dict]:
+        """
+        List all archived files
+        
+        Returns:
+            List of archive metadata
+        """
+        archives = []
+        
+        for archive_file in self.archive_dir.glob(f"{self.user_id}_archive_*.json"):
+            # Extract date range from filename
+            parts = archive_file.stem.split('_')
+            if len(parts) >= 5:
+                start_date = parts[2]
+                end_date = parts[4]
+                
+                archives.append({
+                    'filename': archive_file.name,
+                    'path': str(archive_file),
+                    'date_range': f"{start_date} to {end_date}",
+                    'size_kb': archive_file.stat().st_size / 1024,
+                    'created': datetime.fromtimestamp(archive_file.stat().st_ctime).isoformat()
+                })
+        
+        return sorted(archives, key=lambda x: x['created'], reverse=True)
 
 
 # ============================================================================

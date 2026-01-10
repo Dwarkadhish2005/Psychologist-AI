@@ -44,6 +44,7 @@ from training.voice.feature_extraction import extract_all_features, extract_stre
 from training.voice.voice_emotion_model import VoiceEmotionSystem
 from inference.phase3_multimodal_fusion import Phase3MultiModalFusion, format_psychological_state
 from inference.phase4_cognitive_layer import Phase4CognitiveFusion
+from inference.phase4_user_manager import UserSelector
 
 
 # ============================================
@@ -317,11 +318,20 @@ class AudioCaptureThread(threading.Thread):
 class IntegratedPsychologistAI:
     """Main integrated system"""
     
-    def __init__(self):
+    def __init__(self, user_id: str = None):
         self.config = Config()
         
         print("=" * 70)
         print("INITIALIZING PSYCHOLOGIST AI - ALL PHASES")
+        print("=" * 70)
+        
+        # PHASE 4.1: User selection
+        if user_id is None:
+            selector = UserSelector(storage_dir="data/user_memory")
+            user_id = selector.select_user()
+        
+        self.user_id = user_id
+        print(f"\n👤 Active User: {user_id}")
         print("=" * 70)
         
         # Initialize Phase 1 (Face)
@@ -342,9 +352,9 @@ class IntegratedPsychologistAI:
         # Initialize Phase 3 (Fusion)
         self.phase3 = Phase3MultiModalFusion()
         
-        # Initialize Phase 4 (Cognitive Layer)
+        # Initialize Phase 4 (Cognitive Layer) with user-specific memory
         self.phase4 = Phase4CognitiveFusion(
-            user_id="default_user",
+            user_id=self.user_id,
             storage_dir="data/user_memory"
         )
         
