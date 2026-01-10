@@ -118,7 +118,7 @@ Psychologist AI/
 │       ├── voice_stress_model.pth
 │       └── model_config.json
 │
-├── 📂 reports/                      # Training reports & logs
+├── 📂 assets/reports/               # Training reports & logs
 │
 ├── 📂 scripts/                      # Utility scripts ⭐ NEW
 │   ├── check_gpu.py                 # GPU availability check

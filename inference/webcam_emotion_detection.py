@@ -356,7 +356,7 @@ def main():
         elif key == ord('s'):
             # Save screenshot
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"reports/screenshot_{timestamp}.jpg"
+            filename = f"assets/reports/screenshot_{timestamp}.jpg"
             cv2.imwrite(filename, annotated_frame)
             print(f" Screenshot saved: {filename}")
         elif key == ord('p'):

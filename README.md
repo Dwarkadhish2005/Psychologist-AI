@@ -68,10 +68,12 @@ Psychologist AI/
 ├── 📂 training/           # Training pipelines
 │   ├── train_emotion_model.py           # Face training
 │   └── voice/                            # Voice training
-└── PROJECT_STRUCTURE.md   # Complete architecture
+└── 📂 docs/               # All documentation
+    ├── PROJECT_STRUCTURE.md              # Complete architecture
+    └── QUICK_REFERENCE.md                # Quick reference
 ```
 
-**📐 Complete Architecture:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+**📐 Complete Architecture:** [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
 
 ---
 
@@ -131,7 +133,7 @@ Psychologist AI/
 ## 📖 Documentation
 
 ### **Getting Started**
-- 📐 [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Complete architecture
+- 📐 [PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) - Complete architecture
 - 🚀 [docs/phase3/PHASE3_QUICK_START.md](docs/phase3/PHASE3_QUICK_START.md) - 5-minute setup
 - 🔧 [docs/setup/GPU_SETUP_GUIDE.md](docs/setup/GPU_SETUP_GUIDE.md) - GPU installation
 - 📋 [docs/RUN_EVERYTHING.md](docs/RUN_EVERYTHING.md) - All commands

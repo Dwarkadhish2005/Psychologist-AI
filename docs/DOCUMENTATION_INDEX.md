@@ -9,7 +9,7 @@
 | Document | Description | Estimated Time |
 |----------|-------------|----------------|
 | [README.md](../README.md) | Main project overview | 5 min |
-| [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md) | Complete architecture guide | 10 min |
+| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Complete architecture guide | 10 min |
 | [phase3/PHASE3_QUICK_START.md](phase3/PHASE3_QUICK_START.md) | 5-minute quick start guide | 5 min |
 | [RUN_EVERYTHING.md](RUN_EVERYTHING.md) | All commands reference | 2 min |
 
@@ -168,7 +168,7 @@ python inference/phase3_multimodal_fusion.py
 - [RUN_EVERYTHING.md](RUN_EVERYTHING.md) - All commands reference
 
 ### **Project Organization**
-- [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md) - Complete directory structure
+- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Complete directory structure
 - [.gitignore](../.gitignore) - Git ignore rules
 - [requirements.txt](../requirements.txt) - Python dependencies
 
@@ -248,7 +248,7 @@ python inference/phase3_multimodal_fusion.py
 ## 💡 Tips
 
 - **Start with:** [README.md](../README.md) and [PHASE3_QUICK_START.md](phase3/PHASE3_QUICK_START.md)
-- **For details:** [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md)
+- **For details:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 - **For commands:** [RUN_EVERYTHING.md](RUN_EVERYTHING.md)
 - **For troubleshooting:** Check `diagnostics/` folder
 - **For architecture:** [PHASE3_DOCUMENTATION.md](phase3/PHASE3_DOCUMENTATION.md)

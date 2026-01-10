@@ -114,9 +114,9 @@ python diagnostics/test_happy_audio.py
 ### **Documentation**
 | File | Purpose |
 |------|---------|
-| [README.md](README.md) | Main project overview |
+| [README.md](../README.md) | Main project overview |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Complete architecture (200+ lines) |
-| [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) | Navigation hub |
+| [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) | Navigation hub |
 | [ORGANIZATION_COMPLETE.md](ORGANIZATION_COMPLETE.md) | Reorganization summary |
 
 ### **Inference (Production)**
@@ -148,7 +148,7 @@ python diagnostics/test_happy_audio.py
 3. Run `python inference/integrated_psychologist_ai.py`
 
 ### **Understanding Architecture**
-1. Read [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+1. Read [docs/PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 2. Browse [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md)
 3. Check phase-specific docs
 
@@ -200,7 +200,7 @@ python diagnostics/test_happy_audio.py
 
 ### **Main Documentation**
 - [README.md](README.md) - Project overview
-- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Architecture
+- [docs/PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Architecture
 - [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md) - All docs
 
 ### **Phase Guides**

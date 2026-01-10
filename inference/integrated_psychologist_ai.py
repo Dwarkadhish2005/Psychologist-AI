@@ -644,6 +644,27 @@ class IntegratedPsychologistAI:
             print(f"  Stress persistent: {stats['stress_persistent']}")
             print(f"  Masking detected: {stats['masking_detected']}")
             print("=" * 70)
+            
+            # Save session to Phase 4 long-term memory
+            if self.frame_count > 0:
+                print("\n💾 Saving session data...")
+                try:
+                    # Calculate session metrics
+                    session_metrics = self.phase4.session_memory.calculate_metrics()
+                    
+                    # Add to long-term memory (this will save automatically)
+                    self.phase4.long_term_memory.add_session(session_metrics)
+                    
+                    # Update user session count in users.json
+                    from inference.phase4_user_manager import UserManager
+                    user_manager = UserManager(storage_dir="data/user_memory")
+                    user_manager.increment_session_count(self.user_id)
+                    
+                    print(f"✓ Session saved successfully")
+                    print(f"  Duration: {session_metrics.session_duration / 60:.1f} minutes")
+                    print(f"  Frames processed: {self.frame_count}")
+                except Exception as e:
+                    print(f"✗ Error saving session: {e}")
 
 
 # ============================================

@@ -10,19 +10,22 @@
 Psychologist AI/
 │
 ├── 📂 assets/                      # Static assets
-│   ├── images/                     # Image assets
+│   ├── reports/                    # Training reports & plots
+│   │   ├── confusion_matrix_*.png
+│   │   ├── training_plot_*.png
+│   │   └── training_history_*.json
 │   └── visualizations/             # Generated charts & graphs
 │       ├── phase3_architecture.png
 │       ├── phase3_mental_states.png
 │       └── phase3_scenario_results.png
 │
-├── 📂 config/                      # Configuration files
-│   └── (Future: config.yaml, settings.json)
-│
-├── 📂 data/                        # Training datasets
-│   ├── train/                      # Training data
-│   ├── test/                       # Test data
-│   └── validation/                 # Validation data
+├── 📂 data/                        # Training datasets & user data
+│   ├── face_emotion/               # Face datasets
+│   ├── voice_emotion/              # Voice datasets & feature cache
+│   └── user_memory/                # User profiles & long-term memory
+│       ├── users.json
+│       ├── archive/
+│       └── {user_id}_longterm_memory.json
 │
 ├── 📂 diagnostics/                 # Diagnostic & testing tools
 │   ├── check_voice_model.py        # Voice model validation
@@ -57,13 +60,22 @@ Psychologist AI/
 │   │   ├── README_PHASE3.md
 │   │   ├── PHASE3_DOCUMENTATION.md
 │   │   ├── PHASE3_QUICK_START.md
+│   │   ├── PHASE3_DETAILED_BREAKDOWN.md
 │   │   └── PHASE3_COMPLETION_SUMMARY.md
 │   │
+│   ├── phase4/                     # Phase 4: Cognitive Layer
+│   │   ├── README.md
+│   │   ├── PHASE4_COMPLETE.md
+│   │   ├── PHASE4_DESIGN_GAPS.md
+│   │   ├── PHASE4_DETAILED_EXPLANATION.md
+│   │   └── PHASE4_IMPLEMENTATION_COMPLETE.md
+│   │
+│   ├── DOCUMENTATION_INDEX.md      # Navigation hub
 │   ├── models_guide.md             # Model architecture guide
+│   ├── PROJECT_STRUCTURE.md        # This file
+│   ├── QUICK_REFERENCE.md          # Quick reference
+│   ├── ORGANIZATION_COMPLETE.md    # Reorganization summary
 │   └── RUN_EVERYTHING.md           # Quick command reference
-│
-├── 📂 fusion/                      # Multi-modal fusion (legacy)
-│   └── (Replaced by Phase 3 system)
 │
 ├── 📂 inference/                   # Real-time inference engines
 │   ├── webcam_emotion_detection.py           # Face emotion (webcam)
@@ -71,26 +83,27 @@ Psychologist AI/
 │   ├── dual_model_emotion_detection.py       # Dual-model face detection
 │   ├── phase3_multimodal_fusion.py           # Phase 3 fusion engine (890 lines)
 │   ├── phase3_demo.py                        # Phase 3 demo & visualization
-│   └── integrated_psychologist_ai.py         # Complete integrated system
-│
-├── 📂 memory/                      # Temporal memory & context
-│   └── (Future: session memory, user profiles)
+│   ├── phase4_cognitive_layer.py             # Phase 4 cognitive layer (2500+ lines)
+│   ├── phase4_user_manager.py                # User management system (345 lines)
+│   ├── demo_phase4_integration.py            # Phase 4 integration demo
+│   ├── demo_phase4_enhancements.py           # Phase 4.1/4.2 feature demo
+│   └── integrated_psychologist_ai.py         # Complete integrated system (all phases)
 │
 ├── 📂 models/                      # Trained model files
 │   ├── face_emotion/               # Face emotion models
-│   │   ├── best_model_phase_1.pth
-│   │   ├── specialist_model.pth
-│   │   └── ensemble_config.json
+│   │   ├── emotion_cnn_best.pth
+│   │   ├── emotion_cnn_phase15_specialist.pth
+│   │   ├── emotion_cnn_phase15_best.pth
+│   │   ├── labels.json
+│   │   └── config.json
 │   │
 │   └── voice_emotion/              # Voice emotion & stress models
-│       ├── voice_emotion_model_balanced.pth
-│       ├── voice_stress_model.pth
-│       └── model_config.json
-│
-├── 📂 reports/                     # Training reports & logs
-│   ├── training_logs/
-│   ├── evaluation_metrics/
-│   └── performance_reports/
+│       ├── emotion_model_best_balanced.pth
+│       ├── emotion_model_best_improved.pth
+│       ├── emotion_model_best.pth
+│       ├── stress_model_best.pth
+│       ├── labels.json
+│       └── config.json
 │
 ├── 📂 scripts/                     # Utility scripts
 │   ├── check_gpu.py                # GPU availability check

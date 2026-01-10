@@ -259,7 +259,7 @@ def main():
     
     # ========== Save Training History ==========
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(f'reports/training_history_{timestamp}.json', 'w') as f:
+    with open(f'assets/reports/training_history_{timestamp}.json', 'w') as f:
         json.dump(history, f, indent=4)
     
     # ========== Plot Results ==========
@@ -301,8 +301,8 @@ def plot_history(history):
     
     plt.tight_layout()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    plt.savefig(f'reports/training_plot_{timestamp}.png')
-    print(f"✓ Saved training plot to reports/")
+    plt.savefig(f'assets/reports/training_plot_{timestamp}.png')
+    print(f"✓ Saved training plot to assets/reports/")
 
 
 # ============================================

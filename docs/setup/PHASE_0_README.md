@@ -14,7 +14,7 @@ PSYCHOLOGIST_AI/
 ├── fusion/            # Multi-modal integration logic
 ├── memory/            # Conversation history & user profiles
 ├── ui/                # Web/Desktop interface
-└── reports/           # Training logs, metrics, visualizations
+└── assets/reports/    # Training logs, metrics, visualizations
 ```
 
 **Every future phase plugs into this structure. No exceptions.**
