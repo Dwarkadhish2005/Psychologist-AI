@@ -663,8 +663,41 @@ class IntegratedPsychologistAI:
                     print(f"✓ Session saved successfully")
                     print(f"  Duration: {session_metrics.session_duration / 60:.1f} minutes")
                     print(f"  Frames processed: {self.frame_count}")
+                    
+                    # Check if Phase 5 PSV is available
+                    print("\n🧠 Phase 5: Personality Inference")
+                    print("=" * 70)
+                    
+                    psv_summary = self.phase4.get_phase5_personality_summary()
+                    
+                    if psv_summary and psv_summary.get('available'):
+                        # PSV ready - show summary
+                        psv = psv_summary['personality_state_vector']
+                        confidence = psv_summary['confidence']
+                        
+                        print(f"✓ Personality State Vector (PSV) - Confidence: {confidence['level'].upper()}")
+                        print(f"  • Emotional Stability:  {psv['emotional_stability']:.3f}")
+                        print(f"  • Stress Sensitivity:   {psv['stress_sensitivity']:.3f}")
+                        print(f"  • Recovery Speed:       {psv['recovery_speed']:.3f}")
+                        print(f"  • Positivity Bias:      {psv['positivity_bias']:.3f}")
+                        print(f"  • Volatility:           {psv['volatility']:.3f}")
+                        print(f"\n  Sessions analyzed: {confidence['sessions_processed']}")
+                        print(f"\n  {psv_summary['behavioral_descriptor']}")
+                    else:
+                        # PSV not ready yet
+                        current = psv_summary.get('current_sessions', 0) if psv_summary else 0
+                        required = self.phase4.phase5_engine.min_sessions_required if self.phase4.phase5_engine else 3
+                        print(f"⏳ Personality inference not ready yet")
+                        print(f"  Current sessions: {current}")
+                        print(f"  Required sessions: {required}")
+                        print(f"  Complete {required - current} more session(s) to unlock PSV")
+                    
+                    print("=" * 70)
+                    
                 except Exception as e:
                     print(f"✗ Error saving session: {e}")
+                    import traceback
+                    traceback.print_exc()
 
 
 # ============================================

@@ -42,6 +42,18 @@ from inference.phase3_multimodal_fusion import (
     RiskLevel
 )
 
+# Import Phase 5 structures (lazy import to avoid circular dependencies)
+try:
+    from inference.phase5_personality_engine import (
+        PersonalityEngine,
+        PersonalityStateVector,
+        generate_personality_report
+    )
+    PHASE5_AVAILABLE = True
+except ImportError:
+    PHASE5_AVAILABLE = False
+    print("⚠️ Phase 5 not available - personality inference disabled")
+
 
 # ============================================================================
 # 📊 MODULE 1: SESSION MEMORY (SHORT-TERM TRACKING)
@@ -85,6 +97,7 @@ class SessionMetrics:
     positive_emotion_ratio: float  # % calm/joyful/happy
     negative_emotion_ratio: float  # % anxious/depressed/unstable
     neutral_emotion_ratio: float  # % emotionally_masked/neutral states
+    dominant_emotions: List[Tuple[str, float]]  # (emotion, frequency)
 
 
 class SessionMemory:
@@ -179,7 +192,8 @@ class SessionMemory:
                 risk_escalations=0,
                 positive_emotion_ratio=0.0,
                 negative_emotion_ratio=0.0,
-                neutral_emotion_ratio=0.0
+                neutral_emotion_ratio=0.0,
+                dominant_emotions=[]
             )
         
         # Extract data arrays
@@ -262,6 +276,14 @@ class SessionMemory:
         negative_ratio = negative_count / total_states if total_states > 0 else 0.0
         neutral_ratio = neutral_count / total_states if total_states > 0 else 0.0
         
+        # Emotion distribution
+        emotions = [state.dominant_emotion for _, state in self.states]
+        emotion_counts = Counter(emotions)
+        dominant_emotions = [
+            (emotion, count / total_states)
+            for emotion, count in emotion_counts.most_common(5)
+        ]
+        
         # Build metrics object
         return SessionMetrics(
             session_start=self.start_time,
@@ -284,7 +306,8 @@ class SessionMemory:
             risk_escalations=risk_escalations,
             positive_emotion_ratio=positive_ratio,
             negative_emotion_ratio=negative_ratio,
-            neutral_emotion_ratio=neutral_ratio
+            neutral_emotion_ratio=neutral_ratio,
+            dominant_emotions=dominant_emotions
         )
     
     def get_summary(self) -> Dict:
@@ -390,6 +413,7 @@ class DailyProfile:
     positive_ratio: float
     negative_ratio: float
     neutral_ratio: float
+    dominant_emotions: List[Tuple[str, float]]  # Top emotions
     
     # Session-level patterns
     state_switches_per_minute: float
@@ -529,6 +553,7 @@ class LongTermMemory:
             positive_ratio=0.0,
             negative_ratio=0.0,
             neutral_ratio=0.0,
+            dominant_emotions=[],
             state_switches_per_minute=0.0,
             emotional_volatility=0.0
         )
@@ -589,6 +614,14 @@ class LongTermMemory:
             n,
             1
         )
+        
+        # Merge dominant emotions
+        profile.dominant_emotions = self._merge_emotions(
+            profile.dominant_emotions,
+            metrics.dominant_emotions,
+            n,
+            1
+        )
     
     def _merge_mental_states(
         self,
@@ -619,6 +652,32 @@ class LongTermMemory:
         # Return top 5
         sorted_states = sorted(state_freqs.items(), key=lambda x: x[1], reverse=True)
         return sorted_states[:5]
+    
+    def _merge_emotions(self, old_emotions: List[Tuple[str, float]], 
+                       new_emotions: List[Tuple[str, float]],
+                       old_weight: float, new_weight: float) -> List[Tuple[str, float]]:
+        """
+        Merge two emotion distributions with weights
+        
+        Returns top 5 emotions
+        """
+        # Combine all emotions
+        emotion_freqs: Dict[str, float] = {}
+        
+        for emotion, freq in old_emotions:
+            emotion_freqs[emotion] = emotion_freqs.get(emotion, 0.0) + (freq * old_weight)
+        
+        for emotion, freq in new_emotions:
+            emotion_freqs[emotion] = emotion_freqs.get(emotion, 0.0) + (freq * new_weight)
+        
+        # Normalize
+        total_weight = old_weight + new_weight
+        for emotion in emotion_freqs:
+            emotion_freqs[emotion] /= total_weight
+        
+        # Return top 5
+        sorted_emotions = sorted(emotion_freqs.items(), key=lambda x: x[1], reverse=True)
+        return sorted_emotions[:5]
     
     def _update_weekly_aggregate(self, date: str) -> None:
         """Update weekly aggregate for the week containing this date"""
@@ -679,6 +738,17 @@ class LongTermMemory:
         
         dominant_states = sorted(state_counter.items(), key=lambda x: x[1], reverse=True)[:5]
         
+        # Aggregate emotions across week
+        all_emotions: List[Tuple[str, float]] = []
+        for daily in daily_data:
+            all_emotions.extend(daily.dominant_emotions)
+        
+        emotion_counter: Dict[str, float] = {}
+        for emotion, freq in all_emotions:
+            emotion_counter[emotion] = emotion_counter.get(emotion, 0.0) + freq
+        
+        dominant_emotions = sorted(emotion_counter.items(), key=lambda x: x[1], reverse=True)[:5]
+        
         # Create weekly aggregate
         weekly = WeeklyAggregate(
             week_start=week_start,
@@ -694,7 +764,7 @@ class LongTermMemory:
             risk_trend=calculate_trend(risk_values),
             stability_trend=calculate_trend(stability_values),
             dominant_mental_states=dominant_states,
-            dominant_emotions=[]  # TODO: Track emotions separately
+            dominant_emotions=dominant_emotions
         )
         
         self.weekly_aggregates[week_start] = weekly
@@ -775,6 +845,10 @@ class LongTermMemory:
             profile_dict["dominant_mental_states"] = [
                 [state.value, freq] for state, freq in profile.dominant_mental_states
             ]
+            # Ensure emotions are in correct format
+            profile_dict["dominant_emotions"] = [
+                [emotion, freq] for emotion, freq in profile.dominant_emotions
+            ]
             daily_data[date] = profile_dict
         
         weekly_data = {}
@@ -816,6 +890,15 @@ class LongTermMemory:
                         (MentalState(state), freq)
                         for state, freq in profile_dict["dominant_mental_states"]
                     ]
+                # Convert emotions to tuples
+                if "dominant_emotions" in profile_dict:
+                    profile_dict["dominant_emotions"] = [
+                        (emotion, freq)
+                        for emotion, freq in profile_dict.get("dominant_emotions", [])
+                    ]
+                else:
+                    # For backward compatibility with old data
+                    profile_dict["dominant_emotions"] = []
                 self.daily_profiles[date] = DailyProfile(**profile_dict)
             
             # Reconstruct weekly aggregates
@@ -1901,7 +1984,21 @@ class Phase4CognitiveFusion:
         # Initialize all modules
         self.session_memory = SessionMemory()
         self.long_term_memory = LongTermMemory(user_id, storage_dir)
+        
+        # Phase 4 personality (trait inference from stats)
         self.personality_engine = PersonalityInferenceEngine()
+        
+        # Phase 5 personality (PSV - long-term behavioral patterns)
+        if PHASE5_AVAILABLE:
+            self.phase5_engine = PersonalityEngine(
+                user_id=user_id,
+                storage_dir=storage_dir,
+                learning_rate=0.03,  # Slow updates
+                min_sessions_required=3  # Need 3+ sessions
+            )
+        else:
+            self.phase5_engine = None
+        
         self.baseline_builder = BaselineBuilder()
         self.deviation_detector = DeviationDetector()
         
@@ -1987,6 +2084,20 @@ class Phase4CognitiveFusion:
             
             # Save to long-term memory
             self.long_term_memory.add_session(final_metrics)
+            
+            # Update Phase 5 PSV (if available)
+            if self.phase5_engine:
+                # Add session to Phase 5 buffer
+                self.phase5_engine.add_session(final_metrics)
+                
+                # Update PSV if enough data
+                if self.phase5_engine.can_infer_personality():
+                    # Get recent daily profiles for PSV update
+                    recent_dates = sorted(self.long_term_memory.daily_profiles.keys())[-7:]  # Last 7 days
+                    recent_profiles = [self.long_term_memory.daily_profiles[d] for d in recent_dates]
+                    
+                    # Update PSV
+                    self.phase5_engine.update_psv(recent_profiles)
             
             # Trigger profile update
             self._update_profiles()
@@ -2164,6 +2275,55 @@ Adjustment: {profile.risk_adjustment_reason}
         """.strip()
         
         return report
+    
+    def get_phase5_personality_summary(self) -> Optional[Dict]:
+        """
+        Get Phase 5 Personality State Vector (PSV) summary
+        
+        Returns:
+            Dictionary with PSV traits and behavioral descriptor, or None if Phase 5 unavailable
+        """
+        if not self.phase5_engine:
+            return None
+        
+        if not self.phase5_engine.can_infer_personality():
+            return {
+                "available": False,
+                "reason": f"Need {self.phase5_engine.min_sessions_required} sessions minimum",
+                "current_sessions": self.phase5_engine.psv.total_sessions_processed
+            }
+        
+        return {
+            "available": True,
+            **self.phase5_engine.get_personality_summary()
+        }
+    
+    def get_phase5_full_report(self) -> Optional[str]:
+        """
+        Generate Phase 5 personality report
+        
+        Returns:
+            Formatted personality report or None if unavailable
+        """
+        if not self.phase5_engine:
+            return "⚠️ Phase 5 Personality Engine not available"
+        
+        if not self.phase5_engine.can_infer_personality():
+            return f"""
+{'='*80}
+⏳ PHASE 5: PERSONALITY INFERENCE
+{'='*80}
+
+Status: Insufficient Data
+Required Sessions: {self.phase5_engine.min_sessions_required}
+Current Sessions: {self.phase5_engine.psv.total_sessions_processed}
+
+Please complete more sessions to enable personality inference.
+{'='*80}
+            """.strip()
+        
+        from inference.phase5_personality_engine import generate_personality_report
+        return generate_personality_report(self.phase5_engine)
 
 
 # ============================================================================

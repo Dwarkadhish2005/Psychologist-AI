@@ -92,7 +92,6 @@ Each signal gets a **reliability score**:
 ```python
 weighted_confidence = confidence × reliability × signal_quality
 ```
-
 **Emotion Mapping:**
 - `disgust` (face) → `angry` (voice equivalent)
 - `surprise` (face) → `neutral` (transient, treated as neutral)
