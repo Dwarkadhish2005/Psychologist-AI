@@ -24,7 +24,7 @@ Phase 5 learns **who you are** from patterns of **what you feel**.
 ## 🎯 What's Included
 
 ### **Source Code**
-- [`phase5_personality_engine.py`](../../inference/phase5_personality_engine.py) - Core PSV engine (31 KB)
+- [`phase5_personality_engine. py`](../../inference/phase5_personality_engine.py) - Core PSV engine (31 KB)
 - [`phase5_visualization.py`](../../inference/phase5_visualization.py) - Visualization tools (16 KB)
 
 ### **Documentation**

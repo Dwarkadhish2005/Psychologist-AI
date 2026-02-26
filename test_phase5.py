@@ -27,8 +27,31 @@ if not users:
     print("❌ No users found. Run the integrated system first.")
     exit(1)
 
-user = users[0]
-print(f"✓ Found user: {user.name}")
+# Check all users and find one with enough sessions
+print(f"Found {len(users)} user(s) in system:")
+for u in users:
+    engine_temp = PersonalityEngine(user_id=u.user_id, storage_dir="data/user_memory")
+    can_infer = engine_temp.can_infer_personality()
+    status = "✓ Ready" if can_infer else f"✗ Needs {engine_temp.min_sessions_required - u.total_sessions} more"
+    print(f"  • {u.name}: {u.total_sessions} sessions - {status}")
+print()
+
+# Find first user with enough sessions
+user = None
+for u in users:
+    engine_temp = PersonalityEngine(user_id=u.user_id, storage_dir="data/user_memory")
+    if engine_temp.can_infer_personality():
+        user = u
+        break
+
+if user is None:
+    print("❌ No users have enough sessions for personality inference")
+    print(f"   Minimum required: 3 sessions")
+    print()
+    print("💡 Solution: Run the psychologist AI more times with your users")
+    exit(1)
+
+print(f"✓ Using user: {user.name}")
 print(f"  User ID: {user.user_id}")
 print(f"  Total sessions: {user.total_sessions}")
 print()
