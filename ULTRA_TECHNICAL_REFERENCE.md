@@ -363,7 +363,6 @@ transforms.Compose([
 - Clips to image boundaries (`max(0, x - padding)`)
 - Reason: Includes chin/forehead context; reduces clipping at edges
 
----
 
 ### 4.6 Training Configuration & Hyperparameters
 
@@ -478,7 +477,7 @@ pitch_range    — Max - Min pitch
 pitch_median   — Median pitch (robust to outliers)
 pitch_slope    — Upward/downward trend over utterance
 ```
-**Extraction:** `librosa.piptrack()` — YIN algorithm for pitch tracking
+**Extraction:** `librosa.piptrack()` — STFT algorithm for pitch tracking
 - `fmin=75 Hz`, `fmax=500 Hz` — human voice range
 - Per-frame: select strongest pitch (max magnitude)
 
@@ -502,7 +501,7 @@ zcr_std     — Zero-crossing rate variability
 - Low energy → sadness, fatigue
 - Zero-crossing rate → voice activity; unvoiced vs voiced sounds
 
-#### Feature Family 3: Spectral Features (30 dims)
+#### Feature Family 3: Spectral Features (32 dims)
 ```
 mfcc_mean[1..13]              — 13 MFCC coefficient means
 mfcc_std[1..13]               — 13 MFCC coefficient standard deviations
@@ -523,25 +522,24 @@ spectral_flatness_mean/std    — Noisiness (tonal vs noisy)
 - Above 20: diminishing returns + overfitting risk
 - 13 is the standard in HTK, Kaldi and most voice processing literature
 
-#### Feature Family 4: Temporal/Prosody Features (4 dims)
+#### Feature Family 4: Temporal/Prosody Features (3 dims)
 ```
-speech_rate     — Syllables/phonemes per second
-pause_count     — Number of silence gaps
+speaking_rate   — Speech onsets per second
+num_onsets      — Total number of speech onset events
 pause_ratio     — % of time silent
-speaking_time   — Actual speaking duration
 ```
 
-#### Feature Family 5: Stress-Specific Features (4 dims)
+#### Feature Family 5: Stress-Specific Features (3 dims)
 ```
 jitter          — Cycle-to-cycle pitch irregularity
 shimmer         — Cycle-to-cycle amplitude irregularity
-spectral_flatness — Overall noisiness (stressed voice sounds breathier)
 pitch_variance  — Erratic vs smooth pitch
 ```
-**Why these 4 for stress?**
+**Why these 3 for stress?**
 - `jitter` and `shimmer` are clinical biomarkers for vocal stress
-- Stress causes microtremorin vocal folds → measurable jitter/shimmer
-- `spectral_flatness` increases when voice becomes breathier under stress
+- Stress causes microtremor in vocal folds → measurable jitter/shimmer
+- `spectral_flatness` is excluded here — already captured in Family 3 as `spectral_flatness_mean/std`
+- `pitch_variance` captures vocal instability under stress
 
 ---
 

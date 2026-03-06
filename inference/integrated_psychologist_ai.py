@@ -649,55 +649,142 @@ class IntegratedPsychologistAI:
             if self.frame_count > 0:
                 print("\n💾 Saving session data...")
                 try:
-                    # Calculate session metrics
+                    # Calculate metrics BEFORE anything clears session memory
                     session_metrics = self.phase4.session_memory.calculate_metrics()
-                    
-                    # Add to long-term memory (this will save automatically)
-                    self.phase4.long_term_memory.add_session(session_metrics)
-                    
-                    # Update user session count in users.json
-                    from inference.phase4_user_manager import UserManager
-                    user_manager = UserManager(storage_dir="data/user_memory")
-                    user_manager.increment_session_count(self.user_id)
-                    
-                    print(f"✓ Session saved successfully")
-                    print(f"  Duration: {session_metrics.session_duration / 60:.1f} minutes")
-                    print(f"  Frames processed: {self.frame_count}")
-                    
-                    # Check if Phase 5 PSV is available
-                    print("\n🧠 Phase 5: Personality Inference")
-                    print("=" * 70)
-                    
-                    psv_summary = self.phase4.get_phase5_personality_summary()
-                    
-                    if psv_summary and psv_summary.get('available'):
-                        # PSV ready - show summary
-                        psv = psv_summary['personality_state_vector']
-                        confidence = psv_summary['confidence']
-                        
-                        print(f"✓ Personality State Vector (PSV) - Confidence: {confidence['level'].upper()}")
-                        print(f"  • Emotional Stability:  {psv['emotional_stability']:.3f}")
-                        print(f"  • Stress Sensitivity:   {psv['stress_sensitivity']:.3f}")
-                        print(f"  • Recovery Speed:       {psv['recovery_speed']:.3f}")
-                        print(f"  • Positivity Bias:      {psv['positivity_bias']:.3f}")
-                        print(f"  • Volatility:           {psv['volatility']:.3f}")
-                        print(f"\n  Sessions analyzed: {confidence['sessions_processed']}")
-                        print(f"\n  {psv_summary['behavioral_descriptor']}")
+                    has_new_data = self.phase4.session_memory.get_frame_count() > 0
+
+                    if has_new_data:
+                        # Add to long-term memory (saves to disk automatically)
+                        self.phase4.long_term_memory.add_session(session_metrics)
+
+                        # Update user session count in users.json
+                        from inference.phase4_user_manager import UserManager
+                        user_manager = UserManager(storage_dir="data/user_memory")
+                        user_manager.increment_session_count(self.user_id)
+
+                        print(f"✓ Session saved successfully")
+                        print(f"  Duration: {session_metrics.session_duration / 60:.1f} minutes")
+                        print(f"  Frames processed: {self.frame_count}")
+
+                        # ── Phase 5: update PSV with this session ─────────────
+                        print("\n🧠 Phase 5: Personality Inference")
+                        print("=" * 70)
+
+                        p5 = self.phase4.phase5_engine
+                        if p5 is not None:
+                            p5.add_session(session_metrics)
+
+                            if p5.can_infer_personality():
+                                recent_dates = sorted(
+                                    self.phase4.long_term_memory.daily_profiles.keys()
+                                )[-7:]
+                                recent_profiles = [
+                                    self.phase4.long_term_memory.daily_profiles[d]
+                                    for d in recent_dates
+                                ]
+                                # update_psv calls _save_psv internally
+                                p5.update_psv(recent_profiles)
+
+                                psv = p5.psv
+                                print(f"✓ Personality State Vector (PSV) updated — "
+                                      f"Confidence: {psv.get_confidence_level().replace('_',' ').title()}")
+                                print(f"  • Emotional Stability:  {psv.emotional_stability:.3f}")
+                                print(f"  • Stress Sensitivity:   {psv.stress_sensitivity:.3f}")
+                                print(f"  • Recovery Speed:       {psv.recovery_speed:.3f}")
+                                print(f"  • Positivity Bias:      {psv.positivity_bias:.3f}")
+                                print(f"  • Volatility:           {psv.volatility:.3f}")
+                                print(f"\n  Sessions analyzed: {psv.total_sessions_processed}")
+                                print(f"\n  {psv.get_behavioral_descriptor()}")
+
+                                # ── Auto-generate visualizations ──────────────
+                                try:
+                                    import matplotlib as _mpl
+                                    _mpl.use('Agg')
+                                    from inference.phase5_visualization import (
+                                        create_psv_radar_chart,
+                                        create_psv_trend_chart,
+                                        create_psv_bar_chart,
+                                        create_comprehensive_dashboard,
+                                    )
+                                    import matplotlib.pyplot as _plt
+                                    from pathlib import Path as _Path
+
+                                    output_dir = _Path("assets/reports/psv_visualizations")
+                                    output_dir.mkdir(parents=True, exist_ok=True)
+                                    uid = self.user_id
+
+                                    create_psv_radar_chart(psv, save_path=str(output_dir / f"{uid}_radar.png"))
+                                    create_psv_trend_chart(p5,  save_path=str(output_dir / f"{uid}_trends.png"))
+                                    create_psv_bar_chart(psv,   save_path=str(output_dir / f"{uid}_bars.png"))
+                                    create_comprehensive_dashboard(p5, save_path=str(output_dir / f"{uid}_dashboard.png"))
+                                    _plt.close('all')
+                                    print(f"\n✓ Visualizations updated → {output_dir}")
+                                except Exception as viz_err:
+                                    print(f"  ⚠ Visualization generation failed: {viz_err}")
+                            else:
+                                total = p5.psv.total_sessions_processed + len(p5.session_buffer)
+                                needed = p5.min_sessions_required - total
+                                print(f"⏳ Personality inference not ready yet")
+                                print(f"  Current sessions: {total}")
+                                print(f"  Required sessions: {p5.min_sessions_required}")
+                                print(f"  Complete {needed} more session(s) to unlock PSV")
+                        else:
+                            print("⚠ Phase 5 engine not initialised — PSV skipped")
                     else:
-                        # PSV not ready yet
-                        current = psv_summary.get('current_sessions', 0) if psv_summary else 0
-                        required = self.phase4.phase5_engine.min_sessions_required if self.phase4.phase5_engine else 3
-                        print(f"⏳ Personality inference not ready yet")
-                        print(f"  Current sessions: {current}")
-                        print(f"  Required sessions: {required}")
-                        print(f"  Complete {required - current} more session(s) to unlock PSV")
-                    
+                        # _end_session fired internally via timeout — PSV already saved to disk
+                        print(f"✓ Session data already saved (ended by inactivity timeout)")
+                        print(f"  Frames processed total: {self.frame_count}")
+
+                        # Phase 5 was updated in _end_session — reload from disk + show summary
+                        print("\n🧠 Phase 5: Personality Inference")
+                        print("=" * 70)
+                        p5 = self.phase4.phase5_engine
+                        if p5 is not None and p5.can_infer_personality():
+                            psv = p5.psv
+                            print(f"✓ Personality State Vector (PSV) — "
+                                  f"Confidence: {psv.get_confidence_level().replace('_',' ').title()}")
+                            print(f"  • Emotional Stability:  {psv.emotional_stability:.3f}")
+                            print(f"  • Stress Sensitivity:   {psv.stress_sensitivity:.3f}")
+                            print(f"  • Recovery Speed:       {psv.recovery_speed:.3f}")
+                            print(f"  • Positivity Bias:      {psv.positivity_bias:.3f}")
+                            print(f"  • Volatility:           {psv.volatility:.3f}")
+                            print(f"\n  Sessions analyzed: {psv.total_sessions_processed}")
+                            print(f"\n  {psv.get_behavioral_descriptor()}")
+
+                            # Generate visualizations from the already-saved PSV
+                            try:
+                                import matplotlib as _mpl
+                                _mpl.use('Agg')
+                                from inference.phase5_visualization import (
+                                    create_psv_radar_chart,
+                                    create_psv_trend_chart,
+                                    create_psv_bar_chart,
+                                    create_comprehensive_dashboard,
+                                )
+                                import matplotlib.pyplot as _plt
+                                from pathlib import Path as _Path
+
+                                output_dir = _Path("assets/reports/psv_visualizations")
+                                output_dir.mkdir(parents=True, exist_ok=True)
+                                uid = self.user_id
+
+                                create_psv_radar_chart(psv, save_path=str(output_dir / f"{uid}_radar.png"))
+                                create_psv_trend_chart(p5,  save_path=str(output_dir / f"{uid}_trends.png"))
+                                create_psv_bar_chart(psv,   save_path=str(output_dir / f"{uid}_bars.png"))
+                                create_comprehensive_dashboard(p5, save_path=str(output_dir / f"{uid}_dashboard.png"))
+                                _plt.close('all')
+                                print(f"\n✓ Visualizations updated → {output_dir}")
+                            except Exception as viz_err:
+                                print(f"  ⚠ Visualization generation failed: {viz_err}")
+
                     print("=" * 70)
-                    
+
                 except Exception as e:
                     print(f"✗ Error saving session: {e}")
                     import traceback
                     traceback.print_exc()
+
+
 
 
 # ============================================

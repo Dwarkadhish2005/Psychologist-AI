@@ -13,16 +13,22 @@ import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, List
 import json
+import sys
+
+# Ensure project root is in path so imports work when run directly
+_project_root = str(Path(__file__).parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 # Try to import PersonalityEngine
 try:
     from inference.phase5_personality_engine import PersonalityEngine, PersonalityStateVector
     PHASE5_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     PHASE5_AVAILABLE = False
     PersonalityEngine = None
     PersonalityStateVector = None
-    print("⚠️ Phase 5 not available for visualization")
+    print(f"⚠️ Phase 5 not available for visualization: {e}")
 
 
 def create_psv_radar_chart(
@@ -432,65 +438,82 @@ not a clinical diagnosis.
 # DEMO
 # ============================================================================
 
+
 if __name__ == "__main__":
     if not PHASE5_AVAILABLE:
         print("❌ Phase 5 not available. Cannot create visualizations.")
         exit(1)
-    
-    print("🎨 Phase 5 Visualization Demo")
+
+    from datetime import datetime
+
+    print("📊 Personality Visualization Report Generator")
     print("=" * 70)
-    
-    # Load a personality engine (assumes user data exists)
-    from inference.phase4_user_manager import UserManager
-    
-    user_manager = UserManager()
-    users = user_manager.list_users()
-    
-    if not users:
-        print("❌ No users found. Run the integrated system first.")
-        exit(1)
-    
-    # Use first user
-    user_id = users[0]['user_id']
-    print(f"Loading PSV for user: {user_id}")
-    
-    engine = PersonalityEngine(user_id=user_id, storage_dir="data/user_memory")
-    
-    if not engine.can_infer_personality():
-        print(f"❌ User needs more sessions ({engine.min_sessions_required} minimum)")
-        exit(1)
-    
-    # Create output directory
+    print(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print()
+
+    storage_dir = Path("data/user_memory")
     output_dir = Path("assets/reports/psv_visualizations")
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Generate visualizations
-    print("\n📊 Generating visualizations...")
-    
-    # 1. Radar chart
-    create_psv_radar_chart(
-        engine.psv,
-        save_path=str(output_dir / f"{user_id}_radar.png")
-    )
-    
-    # 2. Trend chart
-    create_psv_trend_chart(
-        engine,
-        save_path=str(output_dir / f"{user_id}_trends.png")
-    )
-    
-    # 3. Bar chart
-    create_psv_bar_chart(
-        engine.psv,
-        save_path=str(output_dir / f"{user_id}_bars.png")
-    )
-    
-    # 4. Comprehensive dashboard
-    create_comprehensive_dashboard(
-        engine,
-        save_path=str(output_dir / f"{user_id}_dashboard.png")
-    )
-    
-    print("\n✓ All visualizations created!")
-    print(f"📁 Saved to: {output_dir}")
+
+    # Find all users that have PSV files on disk
+    psv_files = sorted(storage_dir.glob("*_psv.json"))
+
+    if not psv_files:
+        print("❌ No PSV files found in data/user_memory/")
+        print("   Run the integrated system and complete at least 3 sessions first.")
+        exit(1)
+
+    print(f"Found {len(psv_files)} user(s) with personality data:\n")
+
+    total_generated = 0
+    for psv_file in psv_files:
+        # Derive user_id from filename: strip the trailing _psv.json
+        user_id = psv_file.stem.replace("_psv", "")
+
+        print(f"─── User: {user_id} ───")
+
+        # Load personality engine (reads from disk)
+        engine = PersonalityEngine(user_id=user_id, storage_dir=str(storage_dir))
+
+        sessions = engine.psv.total_sessions_processed
+        confidence = engine.psv.confidence
+        last_updated = engine.psv.last_updated[:19]
+
+        print(f"    Sessions: {sessions}  |  Confidence: {confidence:.1%}  |  Last updated: {last_updated}")
+
+        if not engine.can_infer_personality():
+            needed = engine.min_sessions_required - sessions
+            print(f"    ⏳ Skipped — need {needed} more session(s) to unlock personality reports\n")
+            continue
+
+        # Generate all 4 charts, overwriting any existing files
+        try:
+            create_psv_radar_chart(
+                engine.psv,
+                save_path=str(output_dir / f"{user_id}_radar.png")
+            )
+            create_psv_trend_chart(
+                engine,
+                save_path=str(output_dir / f"{user_id}_trends.png")
+            )
+            create_psv_bar_chart(
+                engine.psv,
+                save_path=str(output_dir / f"{user_id}_bars.png")
+            )
+            create_comprehensive_dashboard(
+                engine,
+                save_path=str(output_dir / f"{user_id}_dashboard.png")
+            )
+            plt.close('all')  # Free memory
+            total_generated += 4
+            print()
+        except Exception as e:
+            print(f"    ❌ Error generating charts: {e}")
+            import traceback
+            traceback.print_exc()
+            print()
+
     print("=" * 70)
+    print(f"✓ Done — {total_generated} chart(s) saved to: {output_dir}")
+    print("=" * 70)
+

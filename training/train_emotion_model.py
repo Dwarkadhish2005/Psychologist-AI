@@ -406,7 +406,7 @@ def main():
             print(f"  Saved best model (val_acc: {val_acc:.2f}%)")
         else:
             patience_counter += 1
-        
+
         # Early stopping
         if patience_counter >= config.PATIENCE:
             print(f"\nEarly stopping triggered after {epoch+1} epochs")

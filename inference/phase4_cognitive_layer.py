@@ -1,16 +1,16 @@
-"""
-🧠 PHASE 4: LONG-TERM COGNITIVE LAYER
+﻿"""
+ðŸ§  PHASE 4: LONG-TERM COGNITIVE LAYER
 =====================================
 
-Purpose: Convert short-term states → long-term traits & personalized risk
+Purpose: Convert short-term states â†’ long-term traits & personalized risk
 Author: Psychologist AI System
 Date: January 10, 2026
 
 Architecture:
-    PHASE 3 (PsychologicalState) → PHASE 4 → UserPsychologicalProfile
+    PHASE 3 (PsychologicalState) â†’ PHASE 4 â†’ UserPsychologicalProfile
     
 Key Concepts:
-    - STATE ≠ TRAIT (momentary vs personality)
+    - STATE â‰  TRAIT (momentary vs personality)
     - BASELINE > ABSOLUTE (personalized thresholds)
     - DEVIATION DETECTION (unusual behavior alerts)
     - PERSONALIZED RISK (adjusted by history)
@@ -42,21 +42,15 @@ from inference.phase3_multimodal_fusion import (
     RiskLevel
 )
 
-# Import Phase 5 structures (lazy import to avoid circular dependencies)
-try:
-    from inference.phase5_personality_engine import (
-        PersonalityEngine,
-        PersonalityStateVector,
-        generate_personality_report
-    )
-    PHASE5_AVAILABLE = True
-except ImportError:
-    PHASE5_AVAILABLE = False
-    print("⚠️ Phase 5 not available - personality inference disabled")
+# Phase 5 will be imported after shared dataclasses are defined (see below)
+PHASE5_AVAILABLE = False
+PersonalityEngine = None
+PersonalityStateVector = None
+generate_personality_report = None
 
 
 # ============================================================================
-# 📊 MODULE 1: SESSION MEMORY (SHORT-TERM TRACKING)
+# ðŸ“Š MODULE 1: SESSION MEMORY (SHORT-TERM TRACKING)
 # ============================================================================
 
 @dataclass
@@ -102,7 +96,7 @@ class SessionMetrics:
 
 class SessionMemory:
     """
-    🎯 PURPOSE: Track psychological states within one sitting (30-90 mins)
+    ðŸŽ¯ PURPOSE: Track psychological states within one sitting (30-90 mins)
     
     STORES:
         - PsychologicalState objects with timestamps
@@ -164,7 +158,7 @@ class SessionMemory:
     
     def calculate_metrics(self) -> SessionMetrics:
         """
-        📊 CORE METHOD: Calculate comprehensive session statistics
+        ðŸ“Š CORE METHOD: Calculate comprehensive session statistics
         
         Returns:
             SessionMetrics with all aggregated data
@@ -345,16 +339,26 @@ class SessionMemory:
         Returns:
             Dictionary representation of session
         """
+        metrics = self.calculate_metrics()
+        metrics_dict = asdict(metrics)
+        # Convert MentalState enums to strings so result is JSON-serializable
+        metrics_dict["dominant_mental_states"] = [
+            [s.value, f] for s, f in metrics.dominant_mental_states
+        ]
         return {
             "start_time": self.start_time,
             "states": [
                 {
                     "timestamp": ts,
-                    "state": asdict(state)
+                    "state": {
+                        **asdict(state),
+                        "mental_state": state.mental_state.value,
+                        "risk_level": state.risk_level.value
+                    }
                 }
                 for ts, state in self.states
             ],
-            "metrics": asdict(self.calculate_metrics())
+            "metrics": metrics_dict
         }
     
     def reset(self) -> SessionMetrics:
@@ -376,7 +380,7 @@ class SessionMemory:
 
 
 # ============================================================================
-# 📚 MODULE 2: LONG-TERM MEMORY (CROSS-SESSION STORAGE)
+# ðŸ“š MODULE 2: LONG-TERM MEMORY (CROSS-SESSION STORAGE)
 # ============================================================================
 
 @dataclass
@@ -446,9 +450,13 @@ class WeeklyAggregate:
     dominant_emotions: List[Tuple[str, float]]
 
 
+# Phase 5 is imported lazily inside Phase4CognitiveFusion.__init__ to avoid
+# circular import (phase5 imports SessionMetrics/DailyProfile from this module).
+
+
 class LongTermMemory:
     """
-    🎯 PURPOSE: Store and analyze psychological data across days/weeks
+    ðŸŽ¯ PURPOSE: Store and analyze psychological data across days/weeks
     
     STORES:
         - Daily summaries (DailyProfile)
@@ -917,7 +925,7 @@ class LongTermMemory:
                 self.weekly_aggregates[week] = WeeklyAggregate(**agg_dict)
                 
         except Exception as e:
-            print(f"⚠️ Warning: Could not load long-term memory: {e}")
+            print(f"âš ï¸ Warning: Could not load long-term memory: {e}")
             # Continue with empty memory
     
     def get_summary(self) -> Dict:
@@ -939,8 +947,8 @@ class LongTermMemory:
             "total_weeks_tracked": len(self.weekly_aggregates),
             "recent_7_days_avg_stress": f"{np.mean([d.avg_stress_ratio for d in recent_days]):.2%}" if recent_days else "N/A",
             "recent_7_days_avg_stability": f"{np.mean([d.avg_stability for d in recent_days]):.2f}" if recent_days else "N/A",
-            "stress_trend": "↑ increasing" if trends.get("stress_trend", 0) > 0.01 else "↓ decreasing" if trends.get("stress_trend", 0) < -0.01 else "→ stable",
-            "stability_trend": "↑ improving" if trends.get("stability_trend", 0) > 0.01 else "↓ declining" if trends.get("stability_trend", 0) < -0.01 else "→ stable",
+            "stress_trend": "â†‘ increasing" if trends.get("stress_trend", 0) > 0.01 else "â†“ decreasing" if trends.get("stress_trend", 0) < -0.01 else "â†’ stable",
+            "stability_trend": "â†‘ improving" if trends.get("stability_trend", 0) > 0.01 else "â†“ declining" if trends.get("stability_trend", 0) < -0.01 else "â†’ stable",
             "last_updated": datetime.fromtimestamp(os.path.getmtime(self.memory_file)).strftime("%Y-%m-%d %H:%M") if self.memory_file.exists() else "Never"
         }
     
@@ -966,14 +974,13 @@ class LongTermMemory:
             return  # Nothing to clean up
         
         # Archive before deleting
-        if old_dates:
-            self._archive_data(old_dates)
-            
-            # Delete from memory
-            for date in old_dates:
-                del self.daily_profiles[date]
-            
-            print(f"🗑️ Cleaned up {len(old_dates)} days older than {self.max_days_stored} days")
+        self._archive_data(old_dates)
+        
+        # Delete from memory
+        for date in old_dates:
+            del self.daily_profiles[date]
+        
+        print(f"ðŸ—‘ï¸ Cleaned up {len(old_dates)} days older than {self.max_days_stored} days")
         
         # Also clean up old weekly aggregates
         old_weeks = [
@@ -1025,7 +1032,7 @@ class LongTermMemory:
         with open(archive_path, 'w') as f:
             json.dump(archived_data, f, indent=2)
         
-        print(f"📦 Archived {len(dates)} days to {archive_filename}")
+        print(f"ðŸ“¦ Archived {len(dates)} days to {archive_filename}")
     
     def export_to_csv(self, filepath: str = None) -> str:
         """
@@ -1089,7 +1096,7 @@ class LongTermMemory:
                     dominant_state
                 ])
         
-        print(f"📊 Exported data to {filepath}")
+        print(f"ðŸ“Š Exported data to {filepath}")
         return str(filepath)
     
     def export_to_json(self, filepath: str = None) -> str:
@@ -1146,7 +1153,7 @@ class LongTermMemory:
         with open(filepath, 'w') as f:
             json.dump(export_data, f, indent=2)
         
-        print(f"📊 Exported data to {filepath}")
+        print(f"ðŸ“Š Exported data to {filepath}")
         return str(filepath)
     
     def get_archive_list(self) -> List[Dict]:
@@ -1177,13 +1184,13 @@ class LongTermMemory:
 
 
 # ============================================================================
-# 🎭 MODULE 3: PERSONALITY PROFILE (TRAIT INFERENCE)
+# ðŸŽ­ MODULE 3: PERSONALITY PROFILE (TRAIT INFERENCE)
 # ============================================================================
 
 @dataclass
 class PersonalityProfile:
     """
-    🎭 PERSONALITY TRAITS inferred from long-term behavioral patterns
+    ðŸŽ­ PERSONALITY TRAITS inferred from long-term behavioral patterns
     
     All traits scored 0.0-1.0
     These are SOFT psychological tendencies, NOT clinical diagnoses
@@ -1209,7 +1216,7 @@ class PersonalityProfile:
 
 class PersonalityInferenceEngine:
     """
-    🧠 INFERS PERSONALITY TRAITS FROM LONG-TERM MEMORY
+    ðŸ§  INFERS PERSONALITY TRAITS FROM LONG-TERM MEMORY
     
     Uses pure statistics (no ML) for explainability:
         - Aggregates behavioral patterns
@@ -1230,7 +1237,7 @@ class PersonalityInferenceEngine:
     
     def infer_personality(self, ltm: LongTermMemory) -> PersonalityProfile:
         """
-        🎯 CORE METHOD: Infer personality profile from long-term memory
+        ðŸŽ¯ CORE METHOD: Infer personality profile from long-term memory
         
         Args:
             ltm: LongTermMemory instance with historical data
@@ -1459,7 +1466,7 @@ class PersonalityInferenceEngine:
             Natural language description
         """
         if profile.confidence < 0.3:
-            return "⚠️ Insufficient data for reliable personality assessment"
+            return "âš ï¸ Insufficient data for reliable personality assessment"
         
         # Interpret each trait
         def interpret(value: float, low: str, mid: str, high: str) -> str:
@@ -1499,7 +1506,7 @@ class PersonalityInferenceEngine:
         )
         
         description = f"""
-🎭 PERSONALITY PROFILE (Confidence: {profile.confidence:.0%})
+ðŸŽ­ PERSONALITY PROFILE (Confidence: {profile.confidence:.0%})
 
 Emotional Reactivity: {reactivity_desc} ({profile.emotional_reactivity:.2f})
 Stress Tolerance: {tolerance_desc} ({profile.stress_tolerance:.2f})
@@ -1507,25 +1514,25 @@ Masking Tendency: {masking_desc} ({profile.masking_tendency:.2f})
 Emotional Stability: {stability_desc} ({profile.emotional_stability:.2f})
 Baseline Mood: {profile.baseline_mood}
 
-💡 Derived Insights:
-  • Volatility: {profile.volatility_score:.2f} (0=calm, 1=chaotic)
-  • Resilience: {profile.resilience_score:.2f} (0=fragile, 1=resilient)
-  • Authenticity: {profile.authenticity_score:.2f} (0=masked, 1=genuine)
+ðŸ’¡ Derived Insights:
+  â€¢ Volatility: {profile.volatility_score:.2f} (0=calm, 1=chaotic)
+  â€¢ Resilience: {profile.resilience_score:.2f} (0=fragile, 1=resilient)
+  â€¢ Authenticity: {profile.authenticity_score:.2f} (0=masked, 1=genuine)
 
-📊 Based on {profile.data_days} days of data
+ðŸ“Š Based on {profile.data_days} days of data
         """.strip()
         
         return description
 
 
 # ============================================================================
-# 📊 MODULE 4: BASELINE PROFILE (PERSONAL "NORMAL")
+# ðŸ“Š MODULE 4: BASELINE PROFILE (PERSONAL "NORMAL")
 # ============================================================================
 
 @dataclass
 class BaselineProfile:
     """
-    📊 PERSONAL BASELINE - What's "normal" for this user
+    ðŸ“Š PERSONAL BASELINE - What's "normal" for this user
     
     This becomes the reference point for deviation detection
     All values are averages from recent history (7-30 days)
@@ -1559,7 +1566,7 @@ class BaselineProfile:
 
 class BaselineBuilder:
     """
-    🔨 BUILDS BASELINE PROFILE FROM LONG-TERM MEMORY
+    ðŸ”¨ BUILDS BASELINE PROFILE FROM LONG-TERM MEMORY
     
     Uses recent history (7-30 days) to define "normal"
     Calculates deviation thresholds based on variance
@@ -1576,7 +1583,7 @@ class BaselineBuilder:
     
     def build_baseline(self, ltm: LongTermMemory) -> BaselineProfile:
         """
-        🎯 CORE METHOD: Build baseline from long-term memory
+        ðŸŽ¯ CORE METHOD: Build baseline from long-term memory
         
         Args:
             ltm: LongTermMemory with historical data
@@ -1684,7 +1691,7 @@ class BaselineBuilder:
 
 
 # ============================================================================
-# 🚨 MODULE 5: DEVIATION DETECTOR (ANOMALY DETECTION)
+# ðŸš¨ MODULE 5: DEVIATION DETECTOR (ANOMALY DETECTION)
 # ============================================================================
 
 @dataclass
@@ -1701,7 +1708,7 @@ class Deviation:
 
 class DeviationDetector:
     """
-    🚨 DETECTS BEHAVIORAL ANOMALIES
+    ðŸš¨ DETECTS BEHAVIORAL ANOMALIES
     
     Compares current state vs baseline to identify:
         - Sudden stress spikes
@@ -1728,7 +1735,7 @@ class DeviationDetector:
         baseline: BaselineProfile
     ) -> List[Deviation]:
         """
-        🎯 CORE METHOD: Detect all deviations from baseline
+        ðŸŽ¯ CORE METHOD: Detect all deviations from baseline
         
         Args:
             current_metrics: Metrics from current session
@@ -1759,8 +1766,10 @@ class DeviationDetector:
         """Detect sudden stress spikes"""
         deviations = []
         
-        # Adjust threshold by sensitivity
-        threshold = baseline.stress_threshold * self.sensitivity
+        # Adjust threshold by sensitivity.
+        # stress_threshold is an upper bound: divide by sensitivity so that
+        # higher sensitivity (e.g. 1.5) lowers the threshold, triggering more easily.
+        threshold = baseline.stress_threshold / self.sensitivity
         current_stress = metrics.stress_duration_ratio
         
         if current_stress > threshold:
@@ -1814,7 +1823,9 @@ class DeviationDetector:
         """Detect unusual masking behavior"""
         deviations = []
         
-        threshold = baseline.masking_threshold * self.sensitivity
+        # masking_threshold is an upper bound: divide by sensitivity so that
+        # higher sensitivity (e.g. 1.5) lowers the trigger threshold.
+        threshold = baseline.masking_threshold / self.sensitivity
         current_masking = metrics.masking_frequency
         
         if current_masking > threshold:
@@ -1906,13 +1917,13 @@ class DeviationDetector:
 
 
 # ============================================================================
-# 🎯 MODULE 6: USER PSYCHOLOGICAL PROFILE (FINAL OUTPUT)
+# ðŸŽ¯ MODULE 6: USER PSYCHOLOGICAL PROFILE (FINAL OUTPUT)
 # ============================================================================
 
 @dataclass
 class UserPsychologicalProfile:
     """
-    🎯 COMPLETE PHASE 4 OUTPUT
+    ðŸŽ¯ COMPLETE PHASE 4 OUTPUT
     
     This is what Phase 4 produces - the ULTIMATE psychological understanding:
         - Who this person is (Personality)
@@ -1948,7 +1959,7 @@ class UserPsychologicalProfile:
 
 class Phase4CognitiveFusion:
     """
-    🧠 MAIN PHASE 4 ORCHESTRATOR
+    ðŸ§  MAIN PHASE 4 ORCHESTRATOR
     
     Brings together all Phase 4 modules to produce final output:
         1. Maintains session memory
@@ -1989,14 +2000,17 @@ class Phase4CognitiveFusion:
         self.personality_engine = PersonalityInferenceEngine()
         
         # Phase 5 personality (PSV - long-term behavioral patterns)
-        if PHASE5_AVAILABLE:
-            self.phase5_engine = PersonalityEngine(
+        # Lazy import avoids circular dependency (phase5 imports from this module)
+        try:
+            from inference.phase5_personality_engine import PersonalityEngine as _PE
+            self.phase5_engine = _PE(
                 user_id=user_id,
                 storage_dir=storage_dir,
                 learning_rate=0.03,  # Slow updates
                 min_sessions_required=3  # Need 3+ sessions
             )
-        else:
+        except Exception as _e:
+            print(f"[WARNING] Phase 5 not available - personality inference disabled: {_e}")
             self.phase5_engine = None
         
         self.baseline_builder = BaselineBuilder()
@@ -2012,7 +2026,7 @@ class Phase4CognitiveFusion:
     
     def process_state(self, state: PsychologicalState) -> UserPsychologicalProfile:
         """
-        🎯 MAIN METHOD: Process Phase 3 state through Phase 4
+        ðŸŽ¯ MAIN METHOD: Process Phase 3 state through Phase 4
         
         Args:
             state: PsychologicalState from Phase 3
@@ -2096,8 +2110,9 @@ class Phase4CognitiveFusion:
                     recent_dates = sorted(self.long_term_memory.daily_profiles.keys())[-7:]  # Last 7 days
                     recent_profiles = [self.long_term_memory.daily_profiles[d] for d in recent_dates]
                     
-                    # Update PSV
+                    # Update PSV and persist to disk
                     self.phase5_engine.update_psv(recent_profiles)
+                    # Note: update_psv already calls _save_psv internally
             
             # Trigger profile update
             self._update_profiles()
@@ -2116,7 +2131,7 @@ class Phase4CognitiveFusion:
         baseline: Optional[BaselineProfile]
     ) -> Tuple[RiskLevel, str]:
         """
-        🔥 CORE PERSONALIZATION: Adjust risk based on individual context
+        ðŸ”¥ CORE PERSONALIZATION: Adjust risk based on individual context
         
         This is WHERE Phase 4 adds intelligence:
             - Same behavior = different risk for different people
@@ -2173,9 +2188,9 @@ class Phase4CognitiveFusion:
         
         # Generate reason
         if adjusted_risk_value > current_risk_value:
-            reason = f"⬆️ Risk elevated: {', '.join(reasons)}"
+            reason = f"â¬†ï¸ Risk elevated: {', '.join(reasons)}"
         elif adjusted_risk_value < current_risk_value:
-            reason = f"⬇️ Risk reduced: {', '.join(reasons)}"
+            reason = f"â¬‡ï¸ Risk reduced: {', '.join(reasons)}"
         else:
             reason = "Risk unchanged (personalized analysis confirms Phase 3)"
         
@@ -2184,9 +2199,9 @@ class Phase4CognitiveFusion:
     def _summarize_deviations(self, deviations: List[Deviation]) -> str:
         """Generate human-readable deviation summary"""
         if not deviations:
-            return "✅ No unusual behavior detected. All metrics within normal range."
+            return "âœ… No unusual behavior detected. All metrics within normal range."
         
-        summary_lines = [f"⚠️ {len(deviations)} behavioral deviation(s) detected:"]
+        summary_lines = [f"âš ï¸ {len(deviations)} behavioral deviation(s) detected:"]
         
         for i, dev in enumerate(deviations[:3], 1):  # Top 3
             summary_lines.append(f"  {i}. {dev.description} (severity: {dev.severity:.0%})")
@@ -2223,25 +2238,25 @@ class Phase4CognitiveFusion:
         """
         report = f"""
 {'='*80}
-🧠 COMPLETE PSYCHOLOGICAL PROFILE
+ðŸ§  COMPLETE PSYCHOLOGICAL PROFILE
 {'='*80}
 
-👤 USER: {self.user_id}
-📅 TIMESTAMP: {profile.timestamp}
-🎯 CONFIDENCE: {profile.confidence:.0%}
+ðŸ‘¤ USER: {self.user_id}
+ðŸ“… TIMESTAMP: {profile.timestamp}
+ðŸŽ¯ CONFIDENCE: {profile.confidence:.0%}
 
-{'─'*80}
-📊 CURRENT STATE (PHASE 3)
-{'─'*80}
+{'â”€'*80}
+ðŸ“Š CURRENT STATE (PHASE 3)
+{'â”€'*80}
 Dominant Emotion: {profile.current_state.dominant_emotion}
 Hidden Emotion: {profile.current_state.hidden_emotion or 'None detected'}
 Mental State: {profile.current_state.mental_state.value}
 Risk Level: {profile.current_state.risk_level.value}
 Stability: {profile.current_state.stability_score:.2f}
 
-{'─'*80}
-🎭 PERSONALITY TRAITS (LONG-TERM)
-{'─'*80}
+{'â”€'*80}
+ðŸŽ­ PERSONALITY TRAITS (LONG-TERM)
+{'â”€'*80}
 Emotional Reactivity: {profile.personality.emotional_reactivity:.2f} (0=stable, 1=reactive)
 Stress Tolerance: {profile.personality.stress_tolerance:.2f} (0=sensitive, 1=tolerant)
 Masking Tendency: {profile.personality.masking_tendency:.2f} (0=authentic, 1=masks)
@@ -2251,22 +2266,22 @@ Baseline Mood: {profile.personality.baseline_mood}
 Volatility: {profile.personality.volatility_score:.2f} | Resilience: {profile.personality.resilience_score:.2f}
 Data: {profile.personality.data_days} days | Confidence: {profile.personality.confidence:.0%}
 
-{'─'*80}
-📏 BASELINE (WHAT'S NORMAL)
-{'─'*80}
+{'â”€'*80}
+ðŸ“ BASELINE (WHAT'S NORMAL)
+{'â”€'*80}
 Typical Stress: {profile.baseline.avg_stress_level:.0%}
 Typical Stability: {profile.baseline.avg_stability:.2f}
 Normal Risk: {profile.baseline.normal_risk_level:.1f}
 Data: {profile.baseline.data_days} days | Confidence: {profile.baseline.confidence:.0%}
 
-{'─'*80}
-🚨 DEVIATION ANALYSIS
-{'─'*80}
+{'â”€'*80}
+ðŸš¨ DEVIATION ANALYSIS
+{'â”€'*80}
 {profile.deviation_summary}
 
-{'─'*80}
-🎯 PERSONALIZED RISK ASSESSMENT
-{'─'*80}
+{'â”€'*80}
+ðŸŽ¯ PERSONALIZED RISK ASSESSMENT
+{'â”€'*80}
 Phase 3 Risk: {profile.phase3_risk.value}
 Adjusted Risk: {profile.adjusted_risk.value}
 Adjustment: {profile.risk_adjustment_reason}
@@ -2306,12 +2321,12 @@ Adjustment: {profile.risk_adjustment_reason}
             Formatted personality report or None if unavailable
         """
         if not self.phase5_engine:
-            return "⚠️ Phase 5 Personality Engine not available"
+            return "âš ï¸ Phase 5 Personality Engine not available"
         
         if not self.phase5_engine.can_infer_personality():
             return f"""
 {'='*80}
-⏳ PHASE 5: PERSONALITY INFERENCE
+â³ PHASE 5: PERSONALITY INFERENCE
 {'='*80}
 
 Status: Insufficient Data
@@ -2324,400 +2339,3 @@ Please complete more sessions to enable personality inference.
         
         from inference.phase5_personality_engine import generate_personality_report
         return generate_personality_report(self.phase5_engine)
-
-
-# ============================================================================
-# 🧪 TEST & DEMO CODE
-# ============================================================================
-
-if __name__ == "__main__":
-    print("="*80)
-    print("🧠 PHASE 4 - LONG-TERM MEMORY TEST")
-    print("="*80)
-    print()
-    
-    # ========================================================================
-    # TEST 1: SessionMemory
-    # ========================================================================
-    print("📊 TEST 1: SessionMemory")
-    print("-" * 60)
-    
-    session = SessionMemory()
-    print("✓ Simulating 300-frame session...")
-    
-    # Simulate session
-    import random
-    
-    mental_states = [
-        MentalState.CALM,
-        MentalState.CALM,
-        MentalState.CALM,
-        MentalState.STRESSED,
-        MentalState.STRESSED,
-        MentalState.ANXIOUS,
-        MentalState.CALM,
-        MentalState.EMOTIONALLY_MASKED
-    ]
-    
-    risk_levels = [
-        RiskLevel.LOW,
-        RiskLevel.LOW,
-        RiskLevel.MODERATE,
-        RiskLevel.HIGH,
-        RiskLevel.LOW
-    ]
-    
-    for i in range(300):
-        state = PsychologicalState(
-            dominant_emotion=random.choice(["neutral", "happy", "sad", "angry"]),
-            hidden_emotion="sad" if random.random() < 0.1 else None,
-            mental_state=random.choice(mental_states),
-            risk_level=random.choice(risk_levels),
-            confidence=random.uniform(0.6, 0.9),
-            stability_score=random.uniform(0.5, 0.9),
-            explanations=["Mock reasoning"],
-            temporal_patterns=[],
-            raw_signals={},
-            timestamp=time.time()
-        )
-        session.add_state(state)
-    
-    session_metrics = session.calculate_metrics()
-    print(f"✓ Session metrics calculated: {session_metrics.total_frames} frames")
-    print(f"  Top state: {session_metrics.dominant_mental_states[0][0].value} ({session_metrics.dominant_mental_states[0][1]*100:.1f}%)")
-    print(f"  Avg stress: {session_metrics.stress_duration_ratio*100:.1f}%")
-    print(f"  Masking events: {session_metrics.total_masking_events}")
-    print()
-    
-    # ========================================================================
-    # TEST 2: LongTermMemory - Single Session
-    # ========================================================================
-    print("📚 TEST 2: LongTermMemory - Single Session")
-    print("-" * 60)
-    
-    import os
-    ltm = LongTermMemory(user_id="test_user", storage_dir="data/test_memory")
-    print(f"✓ LongTermMemory initialized for user: {ltm.user_id}")
-    
-    ltm.add_session(session_metrics)
-    print(f"✓ Session added to long-term memory")
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    if today in ltm.daily_profiles:
-        daily = ltm.daily_profiles[today]
-        print(f"✓ Daily profile created:")
-        print(f"  Date: {daily.date}")
-        print(f"  Sessions: {daily.total_sessions}")
-        print(f"  Avg stress: {daily.avg_stress_ratio*100:.1f}%")
-        print(f"  Masking events: {daily.total_masking_events}")
-    print()
-    
-    # ========================================================================
-    # TEST 3: Multiple Sessions Across Days
-    # ========================================================================
-    print("📆 TEST 3: Multiple Sessions Across Days")
-    print("-" * 60)
-    
-    print("✓ Simulating 10 sessions over 5 days...")
-    
-    # Simulate sessions from past 5 days
-    base_time = time.time()
-    for day in range(5):
-        day_offset = -day * 86400  # Seconds in a day
-        
-        for session_num in range(2):  # 2 sessions per day
-            # Create varied session
-            session2 = SessionMemory()
-            session2.start_time = base_time + day_offset - (session_num * 3600)
-            
-            # Different stress levels per day
-            stress_level = 0.2 + (day * 0.1)  # Increasing stress over days
-            
-            for i in range(200):
-                stress_state = MentalState.STRESSED if random.random() < stress_level else MentalState.CALM
-                
-                state = PsychologicalState(
-                    dominant_emotion=random.choice(["neutral", "happy", "sad"]),
-                    hidden_emotion="sad" if random.random() < 0.05 else None,
-                    mental_state=stress_state,
-                    risk_level=random.choice(risk_levels),
-                    confidence=random.uniform(0.6, 0.9),
-                    stability_score=random.uniform(0.5, 0.9),
-                    explanations=["Test"],
-                    temporal_patterns=[],
-                    raw_signals={},
-                    timestamp=session2.start_time + i
-                )
-                session2.add_state(state)
-            
-            metrics = session2.calculate_metrics()
-            ltm.add_session(metrics)
-    
-    print(f"✓ {len(ltm.daily_profiles)} daily profiles created")
-    print(f"✓ {len(ltm.weekly_aggregates)} weekly aggregates created")
-    print()
-    
-    # ========================================================================
-    # TEST 4: Retrieve Recent Data
-    # ========================================================================
-    print("📊 TEST 4: Retrieve Recent Data")
-    print("-" * 60)
-    
-    recent_days = ltm.get_recent_days(5)
-    print(f"✓ Retrieved {len(recent_days)} recent days:")
-    for day in recent_days[:3]:
-        print(f"  {day.date}: {day.total_sessions} sessions, {day.avg_stress_ratio*100:.1f}% stress")
-    print()
-    
-    # ========================================================================
-    # TEST 5: Trend Analysis
-    # ========================================================================
-    print("📈 TEST 5: Trend Analysis")
-    print("-" * 60)
-    
-    trends = ltm.get_overall_trends()
-    print("✓ Overall trends calculated:")
-    for metric, slope in trends.items():
-        direction = "↑ increasing" if slope > 0.01 else "↓ decreasing" if slope < -0.01 else "→ stable"
-        print(f"  {metric}: {direction} (slope: {slope:.4f})")
-    print()
-    
-    # ========================================================================
-    # TEST 6: Persistence (Save/Load)
-    # ========================================================================
-    print("💾 TEST 6: Persistence (Save/Load)")
-    print("-" * 60)
-    
-    print("✓ Saving memory to disk...")
-    ltm.save()
-    print(f"  Saved to: {ltm.memory_file}")
-    
-    # Create new instance (should load existing data)
-    ltm2 = LongTermMemory(user_id="test_user", storage_dir="data/test_memory")
-    print(f"✓ Loaded memory: {len(ltm2.daily_profiles)} days, {len(ltm2.weekly_aggregates)} weeks")
-    print()
-    
-    # ========================================================================
-    # TEST 7: Summary Report
-    # ========================================================================
-    print("📋 TEST 7: Summary Report")
-    print("-" * 60)
-    
-    summary = ltm.get_summary()
-    print("✓ Long-term memory summary:")
-    for key, value in summary.items():
-        print(f"  {key}: {value}")
-    print()
-    
-    # ========================================================================
-    # TEST 8: Personality Inference
-    # ========================================================================
-    print("🎭 TEST 8: Personality Inference")
-    print("-" * 60)
-    
-    print("✓ Inferring personality from long-term memory...")
-    inference_engine = PersonalityInferenceEngine(min_days=3)
-    personality = inference_engine.infer_personality(ltm)
-    
-    print(f"✓ Personality profile generated:")
-    print(f"  Emotional Reactivity: {personality.emotional_reactivity:.2f}")
-    print(f"  Stress Tolerance: {personality.stress_tolerance:.2f}")
-    print(f"  Masking Tendency: {personality.masking_tendency:.2f}")
-    print(f"  Emotional Stability: {personality.emotional_stability:.2f}")
-    print(f"  Baseline Mood: {personality.baseline_mood}")
-    print(f"  Volatility Score: {personality.volatility_score:.2f}")
-    print(f"  Resilience Score: {personality.resilience_score:.2f}")
-    print(f"  Authenticity Score: {personality.authenticity_score:.2f}")
-    print(f"  Confidence: {personality.confidence:.0%} ({personality.data_days} days)")
-    print()
-    
-    # ========================================================================
-    # TEST 9: Personality Description
-    # ========================================================================
-    print("📝 TEST 9: Personality Description")
-    print("-" * 60)
-    
-    description = inference_engine.get_personality_description(personality)
-    print(description)
-    print()
-    
-    # ========================================================================
-    # TEST 10: Baseline Profile
-    # ========================================================================
-    print("📊 TEST 10: Baseline Profile")
-    print("-" * 60)
-    
-    print("✓ Building baseline from long-term memory...")
-    baseline_builder = BaselineBuilder(history_days=14)
-    baseline = baseline_builder.build_baseline(ltm)
-    
-    print(f"✓ Baseline profile created:")
-    print(f"  Avg Stress Level: {baseline.avg_stress_level:.0%}")
-    print(f"  Avg Stability: {baseline.avg_stability:.2f}")
-    print(f"  Avg Masking Frequency: {baseline.avg_masking_frequency:.2f}/min")
-    print(f"  Normal Risk Level: {baseline.normal_risk_level:.2f}")
-    print(f"  Stress Threshold: {baseline.stress_threshold:.0%}")
-    print(f"  Stability Threshold: {baseline.stability_threshold:.2f}")
-    print(f"  Baseline Confidence: {baseline.confidence:.0%} ({baseline.data_days} days)")
-    print()
-    
-    # ========================================================================
-    # TEST 11: Deviation Detection (Normal Session)
-    # ========================================================================
-    print("🚨 TEST 11: Deviation Detection (Normal Session)")
-    print("-" * 60)
-    
-    detector = DeviationDetector(sensitivity=1.0)
-    deviations = detector.detect_deviations(session_metrics, baseline)
-    
-    print(f"✓ Checked for deviations: {len(deviations)} found")
-    if deviations:
-        for dev in deviations:
-            print(f"  [{dev.deviation_type}] Severity: {dev.severity:.2f}")
-            print(f"    {dev.description}")
-    else:
-        print("  No significant deviations detected (behavior is normal)")
-    print()
-    
-    # ========================================================================
-    # TEST 12: Deviation Detection (Abnormal Session)
-    # ========================================================================
-    print("🚨 TEST 12: Deviation Detection (Abnormal Session)")
-    print("-" * 60)
-    
-    print("✓ Simulating high-stress abnormal session...")
-    
-    # Create abnormal session (high stress, low stability)
-    abnormal_session = SessionMemory()
-    abnormal_session.start_time = time.time()
-    
-    for i in range(200):
-        state = PsychologicalState(
-            dominant_emotion=random.choice(["sad", "angry", "fear"]),
-            hidden_emotion="sad" if random.random() < 0.5 else None,  # High masking
-            mental_state=random.choice([
-                MentalState.STRESSED,
-                MentalState.OVERWHELMED,
-                MentalState.ANXIOUS,
-                MentalState.EMOTIONALLY_UNSTABLE
-            ]),  # High stress states
-            risk_level=random.choice([RiskLevel.HIGH, RiskLevel.CRITICAL, RiskLevel.MODERATE]),
-            confidence=random.uniform(0.4, 0.7),
-            stability_score=random.uniform(0.2, 0.5),  # Low stability
-            explanations=["Abnormal test"],
-            temporal_patterns=[],
-            raw_signals={},
-            timestamp=time.time()
-        )
-        abnormal_session.add_state(state)
-    
-    abnormal_metrics = abnormal_session.calculate_metrics()
-    
-    print(f"  Abnormal session stats:")
-    print(f"    Stress: {abnormal_metrics.stress_duration_ratio:.0%} (baseline: {baseline.avg_stress_level:.0%})")
-    print(f"    Stability: {abnormal_metrics.avg_stability:.2f} (baseline: {baseline.avg_stability:.2f})")
-    print(f"    Masking: {abnormal_metrics.masking_frequency:.1f}/min (baseline: {baseline.avg_masking_frequency:.1f}/min)")
-    print()
-    
-    deviations_abnormal = detector.detect_deviations(abnormal_metrics, baseline)
-    
-    print(f"✓ Deviations detected: {len(deviations_abnormal)}")
-    for dev in deviations_abnormal:
-        print(f"  🚨 [{dev.deviation_type}] Severity: {dev.severity:.0%}")
-        print(f"     {dev.description}")
-    print()
-    
-    # ========================================================================
-    # TEST 13: Complete Phase 4 System
-    # ========================================================================
-    print("🎯 TEST 13: Complete Phase 4 Cognitive Fusion")
-    print("-" * 60)
-    
-    print("✓ Initializing Phase 4 system...")
-    phase4 = Phase4CognitiveFusion(user_id="test_user_full", storage_dir="data/test_memory")
-    
-    # Process a normal state
-    print("✓ Processing normal psychological state...")
-    normal_state = PsychologicalState(
-        dominant_emotion="happy",
-        hidden_emotion=None,
-        mental_state=MentalState.CALM,
-        risk_level=RiskLevel.LOW,
-        confidence=0.8,
-        stability_score=0.8,
-        explanations=["User appears calm and content"],
-        temporal_patterns=[],
-        raw_signals={},
-        timestamp=time.time()
-    )
-    
-    profile_normal = phase4.process_state(normal_state)
-    
-    print(f"✓ UserPsychologicalProfile generated:")
-    print(f"  Phase 3 Risk: {profile_normal.phase3_risk.value}")
-    print(f"  Adjusted Risk: {profile_normal.adjusted_risk.value}")
-    print(f"  Deviations: {len(profile_normal.deviations)}")
-    print(f"  Overall Confidence: {profile_normal.confidence:.0%}")
-    print()
-    
-    # Process an abnormal state
-    print("✓ Processing abnormal psychological state...")
-    abnormal_state = PsychologicalState(
-        dominant_emotion="fear",
-        hidden_emotion="sad",
-        mental_state=MentalState.OVERWHELMED,
-        risk_level=RiskLevel.HIGH,
-        confidence=0.7,
-        stability_score=0.3,
-        explanations=["User shows signs of severe stress"],
-        temporal_patterns=[],
-        raw_signals={},
-        timestamp=time.time()
-    )
-    
-    # Add to session several times to establish pattern
-    for _ in range(50):
-        phase4.session_memory.add_state(abnormal_state)
-    
-    profile_abnormal = phase4.process_state(abnormal_state)
-    
-    print(f"✓ UserPsychologicalProfile (abnormal) generated:")
-    print(f"  Phase 3 Risk: {profile_abnormal.phase3_risk.value}")
-    print(f"  Adjusted Risk: {profile_abnormal.adjusted_risk.value}")
-    print(f"  Risk Adjustment: {profile_abnormal.risk_adjustment_reason}")
-    print(f"  Deviations: {len(profile_abnormal.deviations)}")
-    print()
-    
-    # ========================================================================
-    # TEST 14: Full Report Generation
-    # ========================================================================
-    print("📋 TEST 14: Full Report Generation")
-    print("-" * 60)
-    
-    report = phase4.get_full_report(profile_abnormal)
-    print(report)
-    print()
-    
-    print("="*80)
-    print("✅ ALL TESTS PASSED!")
-    print("="*80)
-    print()
-    print("🎯 PHASE 4 COMPLETE - ALL MODULES FUNCTIONAL:")
-    print("  1. SessionMemory ✅ - Tracks 30-90 min sessions")
-    print("  2. LongTermMemory ✅ - Stores days/weeks of data")
-    print("  3. PersonalityProfile ✅ - Infers 5 core traits")
-    print("  4. BaselineProfile ✅ - Defines personal normal")
-    print("  5. DeviationDetector ✅ - Detects 5 anomaly types")
-    print("  6. UserPsychologicalProfile ✅ - Complete output")
-    print("  7. Phase4CognitiveFusion ✅ - Full orchestration")
-    print()
-    print("🔥 KEY ACHIEVEMENTS:")
-    print("  • STATE → TRAIT conversion working")
-    print("  • BASELINE > ABSOLUTE personalization active")
-    print("  • Deviation detection finds unusual behavior")
-    print("  • Risk adjustment personalized per user")
-    print("  • Cross-session memory persistence")
-    print("  • Pure statistics (no ML), fully explainable")
-    print()
-    print("🚀 READY FOR INTEGRATION WITH PHASE 3!")
-    print("="*80)
