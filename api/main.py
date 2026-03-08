@@ -1,0 +1,47 @@
+"""
+FastAPI application entry point — Psychologist AI Phase 6
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from api.routers import users, sessions, stream, analytics
+
+app = FastAPI(
+    title="Psychologist AI API",
+    description="Real-time multi-modal psychological state analysis",
+    version="6.0.0",
+)
+
+# Allow the Vite dev server (and any local origin) to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(users.router,     prefix="/api/users",     tags=["users"])
+app.include_router(sessions.router,  prefix="/api/sessions",  tags=["sessions"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+app.include_router(stream.router,    tags=["stream"])          # /api/video/feed + /ws/stream
+
+
+@app.get("/", tags=["health"])
+def root():
+    return {"status": "ok", "message": "Psychologist AI API v6.0.0"}
+
+
+@app.get("/api/health", tags=["health"])
+def health():
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=False)

@@ -51,8 +51,8 @@ print(f"  Python version : {sys.version.split()[0]}")
 # ─────────────────────────────────────────────────────────
 section("2. PROJECT MODULE IMPORTS")
 
-from training.model import EmotionCNN, count_parameters
-print(f"  {PASS} training.model                   EmotionCNN")
+from training.model import EmotionCNN, EmotionCNNDeep, count_parameters
+print(f"  {PASS} training.model                   EmotionCNN, EmotionCNNDeep")
 
 from training.preprocessing import preprocess_face
 print(f"  {PASS} training.preprocessing           preprocess_face")
@@ -117,7 +117,11 @@ with open(face_cfg_path) as f:
 print(f"  Face classes     : {face_cfg['class_names']}")
 print(f"  Num classes      : {face_cfg['num_classes']}")
 
-main_face_model = EmotionCNN(num_classes=face_cfg["num_classes"], input_size=48)
+_face_arch = face_cfg.get('architecture', 'EmotionCNN')
+_FACE_ARCH_MAP = {'EmotionCNNDeep': EmotionCNNDeep, 'EmotionCNN': EmotionCNN}
+_MainFaceClass = _FACE_ARCH_MAP.get(_face_arch, EmotionCNN)
+
+main_face_model = _MainFaceClass(num_classes=face_cfg["num_classes"], input_size=48)
 ckpt = torch.load(os.path.join(MODEL_ROOT, "face_emotion", "emotion_cnn_best.pth"), map_location=device, weights_only=False)
 main_face_model.load_state_dict(ckpt)
 main_face_model.to(device).eval()
@@ -149,6 +153,17 @@ st_ckpt = torch.load(os.path.join(MODEL_ROOT, "voice_emotion", "stress_model_bes
 voice_system.stress_detector.load_state_dict(st_ckpt)
 voice_system.to(device).eval()
 print(f"  {PASS} VoiceEmotionSystem loaded (emotion + stress models)")
+
+# Load feature scaler
+_voice_scaler = None
+_scaler_path = os.path.join(MODEL_ROOT, "voice_emotion", "feature_scaler.pkl")
+if os.path.exists(_scaler_path):
+    try:
+        import joblib
+        _voice_scaler = joblib.load(_scaler_path)
+        print(f"  {PASS} Feature scaler loaded")
+    except Exception as e:
+        print(f"  [WARN] Could not load feature scaler: {e}")
 
 # ─────────────────────────────────────────────────────────
 # 6. PHASE 1 — FACE EMOTION INFERENCE (synthetic image)
@@ -184,6 +199,8 @@ norm_audio = normalize_audio(dummy_audio)
 
 _, feature_vector = extract_all_features(norm_audio, SR)
 feature_vector = np.array(feature_vector, dtype=np.float32).flatten()
+if _voice_scaler is not None:
+    feature_vector = _voice_scaler.transform(feature_vector.reshape(1, -1)).flatten()
 
 stress_result = extract_stress_score(norm_audio, SR)
 stress_features = np.array([

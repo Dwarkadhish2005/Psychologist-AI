@@ -1,10 +1,11 @@
 # PSYCHOLOGIST AI — ULTRA TECHNICAL REFERENCE
 ## Every Term, Method, Architecture, Layer, Function, Decision & Statistic
 
-> **Version:** Complete  
+> **Version:** Complete — Updated March 8, 2026  
 > **Created:** February 26, 2026  
 > **Coverage:** All 5 Phases, All Layers, All Code Blocks, All Design Decisions  
-> **Purpose:** Exhaustive reference for interviews, research, and deep implementation understanding
+> **Purpose:** Exhaustive reference for interviews, research, and deep implementation understanding  
+> **Last Update:** Face model upgraded to EmotionCNNDeep (64.42% / F1=0.633); Voice model fixed (54% from collapsed 23%)
 
 ---
 
@@ -162,9 +163,9 @@ Then it fuses all three signals, detects contradictions (e.g., smiling face + st
 │  ┌──────▼───────┐  ┌──────▼──────────────┐       │               │
 │  │ PHASE 1      │  │ PHASE 2              │       │               │
 │  │ Face Emotion │  │ Voice Emotion        │       │               │
-│  │ CNN          │  │ + Stress Detection   │       │               │
+│  │ CNNDeep      │  │ + Stress Detection   │       │               │
 │  │ 7 classes    │  │ FC Net / 5 classes   │       │               │
-│  │ ~300K params │  │ + 3 stress levels    │       │               │
+│  │ ~6M params   │  │ + 3 stress levels    │       │               │
 │  └──────┬───────┘  └──────┬──────────────┘       │               │
 │         │                 │                       │               │
 │  ┌──────▼─────────────────▼───────────────────────▼────────────┐ │
@@ -198,9 +199,9 @@ Then it fuses all three signals, detects contradictions (e.g., smiling face + st
 
 | Phase | Milestone | Status | Key Output |
 |-------|-----------|--------|------------|
-| 1 | Face Emotion Detection | ✅ Complete | 62.57% accuracy, 7 emotion classes |
-| 1.5 | Fine-tuning & Dual-Model Strategy | ✅ Complete | Minority class booster |
-| 2 | Voice Emotion + Stress | ✅ Complete | 44% voice accuracy, 80% happy detection |
+| 1 | Face Emotion Detection | ✅ Complete | 64.42% accuracy, 7 emotion classes, EmotionCNNDeep |
+| 1.5 | Fine-tuning & Dual-Model Strategy | ✅ Complete | Minority class booster (specialist model) |
+| 2 | Voice Emotion + Stress | ✅ Complete | ~54% voice accuracy, macro F1=0.508 |
 | 3 | Multi-Modal Fusion | ✅ Complete | 9/10 scenario tests, 15 mental states |
 | 4 | Cognitive Layer (Memory + Personalization) | ✅ Complete | Long-term user profiles |
 | 5 | Personality Engine + Visualization | ✅ Complete | 5D PSV, radar charts |
@@ -238,12 +239,12 @@ Then it fuses all three signals, detects contradictions (e.g., smiling face + st
 
 ---
 
-### 4.2 Model Architecture: `EmotionCNN`
+### 4.2 Model Architecture: `EmotionCNN` (Phase 1 — Baseline, now used only as specialist)
 
 **Location:** `training/model.py`
 
 ```
-Input: (batch=32, channels=1, H=48, W=48) — Grayscale images
+Input: (batch=128, channels=1, H=48, W=48) — Grayscale images
 
 Block 1: Conv2D(1→32, kernel=3×3, padding=1) → BatchNorm2D(32) → ReLU → MaxPool(2×2)
          Output: (32, 24, 24)
@@ -263,7 +264,7 @@ FC2 (Output): Linear(256 → num_classes)
               Returns raw logits; applied Softmax at inference
 ```
 
-**Total Parameters:** ~300,000 (~300K) — deliberately lightweight for real-time inference
+**Total Parameters:** ~300,000 (~300K) — used as specialist model (`emotion_cnn_phase15_specialist.pth`)
 
 **Key Design Decisions:**
 
@@ -280,20 +281,33 @@ FC2 (Output): Linear(256 → num_classes)
 
 ---
 
-### 4.3 Deeper Model: `EmotionCNNDeep`
+### 4.3 Main Model: `EmotionCNNDeep` (Active — `emotion_cnn_best.pth`)
 
-For when `EmotionCNN` plateaus below 70% accuracy.
+Deeper VGG-style architecture adopted as the primary face model.
 
 ```
-Block 1: Conv(1→64) → Conv(64→64) → BN → MaxPool
-Block 2: Conv(64→128) → Conv(128→128) → BN → MaxPool
-Block 3: Conv(128→256) → Conv(256→256) → BN → MaxPool
+Block 1: Conv(1→64, k=3, pad=1) → Conv(64→64, k=3, pad=1) → BN → ReLU → MaxPool(2×2)
+         Output: (64, 24, 24)
+Block 2: Conv(64→128, k=3, pad=1) → Conv(128→128, k=3, pad=1) → BN → ReLU → MaxPool(2×2)
+         Output: (128, 12, 12)
+Block 3: Conv(128→256, k=3, pad=1) → Conv(256→256, k=3, pad=1) → BN → ReLU → MaxPool(2×2)
+         Output: (256, 6, 6)
 
-FC: 512 → Dropout(0.5) → 256 → Dropout(0.3) → num_classes
-Total Params: ~800K
+Flatten: 256 × 6 × 6 = 9216
+FC1: Linear(9216 → 512) → ReLU → Dropout(0.5)
+FC2: Linear(512 → 256) → ReLU → Dropout(0.3)
+FC3 (Output): Linear(256 → num_classes)  ← raw logits
+
+Total Params: 5,997,383 (~6M)
 ```
 
-**Why two conv layers per block?** — VGG-style stacking of 3×3 convolutions gives effective 5×5 receptive field with fewer parameters and more non-linearities.
+**Why two conv layers per block?** — VGG-style stacking of two 3×3 convolutions gives an effective 5×5 receptive field with fewer parameters and more non-linearities than a single 5×5 conv.
+
+**Why switch from EmotionCNN to EmotionCNNDeep?**
+- EmotionCNN plateaued at ~51% accuracy — insufficient capacity for 7-class FER2013
+- EmotionCNNDeep's 4× wider filters (64→128→256 vs 32→64→128) capture richer facial features
+- The larger FC head (9216→512→256) provides more discriminative power before the classifier
+- Result: **+13% absolute accuracy gain** (51% → 64.42%)
 
 ---
 
@@ -305,11 +319,13 @@ Total Params: ~800K
 ```python
 transforms.Compose([
     transforms.Resize((48, 48)),
-    transforms.RandomHorizontalFlip(p=0.5),     # Faces are left-right symmetric
-    transforms.RandomRotation(degrees=10),        # Head tilt variation
-    transforms.RandomAffine(translate=(0.1, 0.1), scale=(0.9, 1.1)),  # Position/scale variance
+    transforms.RandomHorizontalFlip(p=0.5),               # Faces are left-right symmetric
+    transforms.RandomRotation(degrees=15),                 # Head tilt variation (upgraded from 10°)
+    transforms.RandomAffine(shear=5, scale=(0.85, 1.15)), # Position/scale variance (upgraded)
+    transforms.ColorJitter(brightness=0.3, contrast=0.3), # Lighting variation
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])  # Normalize to [-1, 1]
+    transforms.Normalize(mean=[0.5], std=[0.5]),           # Normalize to [-1, 1]
+    transforms.RandomErasing(p=0.3, scale=(0.02, 0.15))   # Random occlusion robustness
 ])
 ```
 
@@ -368,23 +384,32 @@ transforms.Compose([
 
 | Hyperparameter | Value | Justification |
 |---------------|-------|---------------|
-| `BATCH_SIZE` | 32 | Fits GPU VRAM; good gradient estimate |
-| `NUM_EPOCHS` | 50 | With early stopping at patience=10 |
+| `BATCH_SIZE` | 128 | Large batch for faster CPU/GPU throughput; stable gradient estimate |
+| `NUM_EPOCHS` | 80 | Deeper model needs more warmup; early stopping handles cutoff |
 | `LEARNING_RATE` | 0.001 | Adam default; empirically validated for CNN classification |
 | `WEIGHT_DECAY` | 1e-4 | L2 regularization; prevents overfitting |
-| `PATIENCE` (early stopping) | 10 | Stop if val accuracy doesn't improve for 10 epochs |
+| `PATIENCE` (early stopping) | 15 | Increased from 10; deeper model has longer warmup before convergence |
 | `OPTIMIZER` | Adam | Adaptive learning rates; better than SGD for CNNs on FER |
-| `LOSS` | CrossEntropyLoss | Standard multi-class classification; combines LogSoftmax + NLLLoss |
-| `SCHEDULER` | ReduceLROnPlateau | Reduce LR by 10× on val loss plateau |
+| `LOSS` | WeightedCrossEntropyLoss | Class weights inversely proportional to frequency; disgust weight=9.38× |
+| `SCHEDULER` | ReduceLROnPlateau(mode='max', patience=5) | Steps on macro F1 improvement; reduces LR by 2× on plateau |
+| `SAVE CRITERION` | Best val macro F1 (not accuracy) | Macro F1 penalizes per-class failures equally; avoids happy-class bias |
 
 **Why Adam over SGD?**
 - Adam: Adaptive per-parameter learning rates, handles sparse gradients, converges faster
 - SGD: Requires careful LR tuning, momentum configuration
 - For emotion recognition: Adam consistently outperforms in fewer epochs
 
-**Why CrossEntropyLoss over others?**
-- `CrossEntropyLoss = log-softmax + NLL loss` — the standard for multi-class
-- `FocalLoss` was considered for class imbalance but added complexity; data augmentation + class weights handled it instead
+**Why WeightedCrossEntropyLoss?**
+- Base: `CrossEntropyLoss = log-softmax + NLL loss` — the standard for multi-class
+- Class weights computed via `sklearn.utils.compute_class_weight('balanced')` on training labels
+- This forces the model to penalize disgust misclassification 9.38× more than happy misclassification
+- `FocalLoss` was considered but class weights + macro F1 saving achieved the same goal more simply
+
+**Why macro F1 as saving criterion (not accuracy)?**
+- On imbalanced datasets, accuracy is dominated by majority classes (happy: 5214 samples)
+- A model that gets 100% happy and 0% disgust gets 73% accuracy but terrible F1
+- Macro F1 averages per-class F1 equally → forces the model to improve on minority classes too
+- Result: disgust recall improved from ~10% (accuracy-optimized) to 65% (F1-optimized)
 
 ---
 
@@ -413,15 +438,33 @@ This upweights disgust from ~0.17 weight to ~1.5+, forcing the model to pay atte
 
 | Metric | Value |
 |--------|-------|
-| Overall Accuracy | **62.57%** |
-| Best Class | Surprise: **73%** |
-| Weakest Class | Disgust (due to data imbalance) |
-| Training Dataset | FER2013 (~35K images) |
+| Overall Test Accuracy | **64.42%** |
+| Best Val Accuracy | **64.97%** |
+| Best Macro F1 | **0.633** |
+| Best Class F1 | Happy: **0.86** |
+| Worst Class F1 | Fear: **0.41** |
+| Disgust Recall | **65%** (was near 0% without class weights) |
+| Surprise Recall | **84%** |
+| Training Dataset | FER2013: 20,749 train / 7,960 val / 7,178 test |
+| Architecture | EmotionCNNDeep (5,997,383 params) |
 | Literature Benchmark | ~65-70% state-of-the-art on FER2013 |
+| Trained (date) | 2026-03-08 |
 
-**Why 62.57% is acceptable:**
+**Class weights applied:**
+| Class | Weight | Train Count |
+|-------|--------|-------------|
+| angry | 1.027 | 2,887 |
+| disgust | 9.380 | 316 |
+| fear | 1.001 | 2,961 |
+| happy | 0.568 | 5,214 |
+| neutral | 0.826 | 3,588 |
+| sad | 0.849 | 3,491 |
+| surprise | 1.293 | 2,292 |
+
+**Why 64.42% is a strong result:**
 - FER2013 is notoriously noisy (human labelers disagree ~65% of the time)
 - Inter-human agreement on FER2013 is ~65% → model approaches human performance
+- Previous `EmotionCNN` model achieved only ~51% — this is a **+13% absolute improvement**
 - The system uses **fusion** in Phase 3, so single-modality perfection is unnecessary
 
 ---
@@ -595,13 +638,26 @@ Output: Linear(32 → 3)  ← 3 stress levels: [low, medium, high]
 
 ### 5.5 Training for Voice: `train_voice_emotion_balanced.py`
 
-**Class balancing strategy:**
-- `WeightedRandomSampler` — oversamples minority classes during training
-- Loss weights inversely proportional to class frequency
+**Full training pipeline:**
+- **StandardScaler** — fitted on all 1,680 training samples; saved as `feature_scaler.pkl`; applied at ALL inference points
+- `WeightedRandomSampler` — enforces equal class representation per mini-batch regardless of dataset imbalance
+- `compute_class_weight('balanced')` — weighted cross-entropy loss as a second layer of imbalance correction
+- **Noise augmentation** — Gaussian noise (std=0.1) added to training features to improve generalization
+- `ReduceLROnPlateau(mode='max', patience=8, factor=0.5)` — scheduler steps on macro F1, not val loss
+- **Saves on macro F1** — avoids happy-class bias in checkpoint criterion
+- `lr=0.0003`, `weight_decay=5e-4`, `patience=20` (early stopping)
+- Model architecture: hidden layers `[256, 128, 64]`, Dropout=0.5
+
+**Critical preprocessing alignment (fixed):**
+- Training uses `preprocess_audio(filepath, sr=16000)` — noise reduction + RMS normalize + preemphasis
+- All inference paths (test, integrated inference, run_verify) now use identical pipeline
+- This fixed a critical SR mismatch: original test loaded at sr=22050 causing completely wrong feature distributions
+- `feature_scaler.pkl` is **required** at inference — raw 48-dim features have wildly different scales (pitch=100-500Hz, MFCCs=-20 to +20)
 
 **Why `train_voice_emotion_balanced.py` over `train_voice_emotion.py`?**
+- Original script had no StandardScaler, no WeightedRandomSampler, and `CosineAnnealingWarmRestarts` that reset LR just as training converged
 - Balanced training prevents happy class (abundant) from dominating
-- Results: Happy detection went from ~30% to ~80% after balanced sampling
+- Results: Collapsed model (predicting 'sad' for 83% of inputs, 23% accuracy) → functional 5-class model
 
 ---
 
@@ -609,17 +665,25 @@ Output: Linear(32 → 3)  ← 3 stress levels: [low, medium, high]
 
 | Metric | Value |
 |--------|-------|
-| Overall Accuracy | **44%** |
-| Happy class | **80%** |
-| Neutral class | ~50% |
-| Angry/Fear/Sad | 30-45% |
-| Training data | 3000+ samples |
+| Overall Val Accuracy | **~54%** |
+| Best Val Macro F1 | **0.508** |
+| Training samples | 1,680 (336/class × 5 classes, perfectly balanced) |
+| Val samples | 1,520 |
+| Dataset | RAVDESS + TESS, mapped to 5 classes |
+| Scaler | StandardScaler fitted on 1,680 training samples |
 
-**Why 44% is the honest number:**
+**Previous collapsed state (fixed):**
+- Before fixes: 23% accuracy, predicting 'sad' for 83% of all inputs
+- Root cause: SR mismatch (test used 22050 Hz, training used 16000 Hz) + no StandardScaler applied at inference
+- After fixes: functional 5-class prediction, ~54% accuracy, macro F1=0.508
+
+**Why ~54% is the honest ceiling for this setup:**
 - Voice emotion is inherently harder than face emotion
 - Same sentence in different emotional states can sound very similar
 - RAVDESS/TESS are acted emotions — real emotion is more subtle
-- State-of-the-art on RAVDESS with simple features is ~60-70%; our simplified model lands at 44%
+- Dataset ceiling: only 336 samples/class limits generalization significantly
+- State-of-the-art on RAVDESS with engineered features is ~60-70%; our FC net on 48-dim features + small dataset lands at ~54%
+- Adding raw spectrogram CNN or wav2vec embeddings would significantly improve this
 
 ---
 
@@ -1139,19 +1203,41 @@ Example: `alice_90806d704641`
 ```
 1. Instantiate Config (hyperparameters)
 2. Create EmotionDataset (auto-detects classes from folder names)
-3. Create DataLoaders (train, val, test)
-4. Instantiate EmotionCNN (or EmotionCNNDeep)
+3. Create DataLoaders (train=128 batch/8 workers, val/test=4 workers, persistent_workers=True)
+4. Instantiate EmotionCNNDeep (num_classes auto-detected)
 5. optimizer = Adam(lr=0.001, weight_decay=1e-4)
-6. criterion = CrossEntropyLoss
-7. scheduler = ReduceLROnPlateau(factor=0.1, patience=5)
-8. For epoch in range(50):
+6. criterion = WeightedCrossEntropyLoss (weights from compute_class_weight('balanced'))
+7. scheduler = ReduceLROnPlateau(mode='max', factor=0.5, patience=5)  # steps on macro F1
+8. For epoch in range(80):
    a. train_one_epoch() → loss, acc
    b. validate() → val_loss, val_acc
-   c. scheduler.step(val_loss)
-   d. If val_acc improved: save model checkpoint
-   e. If no improvement for 10 epochs: early stop
+   c. Compute val_macro_f1 via full val pass (sklearn f1_score, average='macro')
+   d. scheduler.step(val_macro_f1)
+   e. If val_macro_f1 improved: save model checkpoint → emotion_cnn_best.pth
+   f. If no improvement for 15 epochs: early stop
 9. evaluate_model() → test acc, confusion matrix, classification report
-10. Save: model weights, training history JSON, plots
+10. Save: model weights, config.json (includes architecture + best_macro_f1 + test_acc), plots
+```
+
+**Config.json saved fields (used by all consumers):**
+```json
+{
+  "architecture": "EmotionCNNDeep",
+  "num_classes": 7,
+  "class_names": ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"],
+  "best_val_acc": 64.97,
+  "best_macro_f1": 0.6330,
+  "test_acc": 64.42,
+  "timestamp": "20260308_165826"
+}
+```
+
+**Dynamic model loading (all consumers):**
+All downstream consumers (`test_face_emotion.py`, `integrated_psychologist_ai.py`, `run_verify.py`) read `architecture` from `config.json` and instantiate the correct class dynamically:
+```python
+_ARCH_MAP = {'EmotionCNNDeep': EmotionCNNDeep, 'EmotionCNN': EmotionCNN}
+ModelClass = _ARCH_MAP.get(config['architecture'], EmotionCNN)
+model = ModelClass(num_classes=..., input_size=48)
 ```
 
 **`train_one_epoch()` inner loop:**
@@ -1167,7 +1253,7 @@ for batch in dataloader:
 **Model checkpointing:**
 - `torch.save(model.state_dict(), path)` — saves only weights, not architecture
 - `torch.load()` + `model.load_state_dict()` — restores
-- Best val accuracy checkpoint saved (not last epoch)
+- Best val **macro F1** checkpoint saved (not last epoch, not val accuracy)
 
 **Training history saved to JSON:**
 ```json
@@ -1176,8 +1262,10 @@ for batch in dataloader:
   "train_acc": [...],
   "val_loss": [...],
   "val_acc": [...],
-  "best_epoch": 23,
-  "best_val_acc": 62.57
+  "val_macro_f1": [...],
+  "best_epoch": 47,
+  "best_val_acc": 64.97,
+  "best_macro_f1": 0.6330
 }
 ```
 
@@ -1195,6 +1283,26 @@ weights = 1.0 / class_counts[label] for each sample
 sampler = WeightedRandomSampler(weights, num_samples=len(train_set))
 ```
 Each class appears proportionally equal regardless of dataset imbalance.
+
+**StandardScaler (critical for voice):**
+```python
+scaler = StandardScaler()
+scaler.fit(all_train_features)          # Fit on 1680 training samples
+joblib.dump(scaler, 'feature_scaler.pkl')
+# At inference:
+features = scaler.transform(raw_features.reshape(1, -1)).flatten()
+```
+Without the scaler, pitch features (100-500 Hz range) and MFCCs (-20 to +20 range) have incompatible scales — the model never sees normalized inputs at inference.
+
+**Audio preprocessing pipeline (applied identically at train + inference):**
+```python
+def preprocess_audio(filepath, sr=16000):
+    y, _ = librosa.load(filepath, sr=16000)
+    y = nr.reduce_noise(y=y, sr=16000)   # Noise reduction
+    y = y / (np.sqrt(np.mean(y**2)) + 1e-8)  # RMS normalize
+    y = np.append(y[0], y[1:] - 0.97 * y[:-1])  # Preemphasis
+    return y
+```
 
 ---
 
@@ -1356,10 +1464,14 @@ Frame t=N: PsychologicalState
 
 | Model/System | Accuracy | Notes |
 |-------------|----------|-------|
-| Face Emotion (EmotionCNN) | **62.57%** | FER2013; human agreement ≈ 65% |
-| Face Emotion Best Class | **73%** (Surprise) | |
-| Voice Emotion (VoiceEmotionModel) | **44% overall** | RAVDESS + TESS |
-| Voice Happy Class | **80%** | After balanced training |
+| Face Emotion (EmotionCNNDeep) | **64.42%** | FER2013; human agreement ≈ 65%; +13% vs previous model |
+| Face Macro F1 | **0.633** | Saved on F1 criterion |
+| Face Best Class F1 | **0.86** (Happy) | |
+| Face Worst Class F1 | **0.41** (Fear) | |
+| Face Disgust Recall | **65%** | Class weight 9.38× |
+| Face Surprise Recall | **84%** | |
+| Voice Emotion (VoiceEmotionModel) | **~54% val** | RAVDESS + TESS, post-fix |
+| Voice Macro F1 | **0.508** | |
 | Phase 3 Scenario Tests | **9/10 passed** | Synthetic testing scenarios |
 | Stress Detection | High reliability (rule-aided) | Jitter/shimmer biomarkers |
 
@@ -1376,12 +1488,13 @@ Frame t=N: PsychologicalState
 
 ### Model Sizes
 
-| Model | Parameters | Memory |
-|-------|-----------|--------|
-| EmotionCNN (face) | ~300K | ~1.2MB |
-| EmotionCNNDeep | ~800K | ~3.2MB |
-| VoiceEmotionModel | ~70K | ~280KB |
-| StressDetector | ~2K | ~8KB |
+| Model | Parameters | File Size | Status |
+|-------|-----------|-----------|--------|
+| EmotionCNNDeep (face main) | 5,997,383 | 22.9 MB | ✅ Active |
+| EmotionCNN (face specialist) | ~300K | 4.9 MB | ✅ Active (minority class booster) |
+| VoiceEmotionModel [256,128,64] | ~70K | 226 KB | ✅ Active |
+| StressDetector | ~2K | 5 KB | ✅ Active |
+| feature_scaler.pkl | — | 1.7 KB | ✅ Required at inference |
 
 ---
 

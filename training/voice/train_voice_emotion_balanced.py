@@ -14,13 +14,16 @@ Goal: Maintain 100% happy detection while improving other classes
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 import numpy as np
 from pathlib import Path
 import json
 from tqdm import tqdm
 from collections import Counter
 import sys
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils.class_weight import compute_class_weight
+import joblib
 
 # Add modules to path
 project_root = Path(__file__).parent.parent.parent
@@ -38,11 +41,13 @@ from audio_preprocessing import preprocess_audio
 class VoiceEmotionDataset(Dataset):
     """Dataset for voice emotion recognition with caching."""
     
-    def __init__(self, file_paths, cache_dir):
+    def __init__(self, file_paths, cache_dir, scaler=None, training=False):
         self.file_paths = file_paths
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+        self.scaler = scaler
+        self.training = training  # enables augmentation during training only
+
         # Load emotion labels
         from dataset_utils import TARGET_EMOTION_TO_IDX
         self.emotion_to_idx = TARGET_EMOTION_TO_IDX
@@ -104,7 +109,18 @@ class VoiceEmotionDataset(Dataset):
             
             # Cache features
             np.save(cache_path, features)
-        
+
+        # Apply feature normalization if scaler is fitted
+        if self.scaler is not None:
+            features = self.scaler.transform(features.reshape(1, -1)).flatten()
+
+        # Gaussian noise augmentation — training only.
+        # Adds random perturbations (std=0.1 in normalized space) so the model
+        # sees slightly different feature values each epoch, reducing overfitting on
+        # only 336 samples per class.
+        if self.training:
+            features = features + np.random.normal(0, 0.1, features.shape).astype(np.float32)
+
         return torch.FloatTensor(features), label
 
 
@@ -156,59 +172,87 @@ def train_balanced_model(
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # Create datasets
+    # Create datasets (no scaler yet — scaler fitted on training features below)
     cache_dir = project_root / 'data' / 'voice_emotion' / 'feature_cache'
-    train_dataset = VoiceEmotionDataset(train_paths, cache_dir)
-    val_dataset = VoiceEmotionDataset(val_paths, cache_dir)
-    
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
-    
-    # Calculate balanced class weights (reduce angry bias)
+    train_dataset = VoiceEmotionDataset(train_paths, cache_dir, training=True)
+    val_dataset = VoiceEmotionDataset(val_paths, cache_dir, training=False)
+
+    # Fit StandardScaler on all training features so train and inference use
+    # the same feature distribution. Save to disk so test scripts can load it.
+    print("\nFitting StandardScaler on training features...")
+    all_train_feats = np.vstack([
+        train_dataset[i][0].numpy() for i in range(len(train_dataset))
+    ])
+    scaler = StandardScaler()
+    scaler.fit(all_train_feats)
+    joblib.dump(scaler, Path(model_save_dir) / 'feature_scaler.pkl')
+    print(f"  Scaler fitted on {len(all_train_feats)} samples — saved to feature_scaler.pkl")
+
+    # Apply scaler to both datasets
+    train_dataset.scaler = scaler
+    val_dataset.scaler = scaler
+
+    # Compute class weights directly from training label distribution
+    emotion_names = ['angry', 'fear', 'happy', 'neutral', 'sad']
     label_counts = Counter(train_dataset.labels)
     print(f"\nTraining label distribution: {label_counts}")
-    
-    # Manual weights to balance angry overprediction
-    # angry=0, fear=1, happy=2, neutral=3, sad=4
-    class_weights = torch.FloatTensor([
-        0.7,  # angry - reduce (was dominating)
-        1.5,  # fear - increase (low recall)
-        1.3,  # happy - increase slightly (maintain good detection)
-        1.2,  # neutral - increase (low recall)
-        1.5   # sad - increase (very low recall)
-    ]).to(device)
-    
-    print("\nBalanced Class Weights:")
-    emotion_names = ['angry', 'fear', 'happy', 'neutral', 'sad']
+
+    # Create data loaders
+    # WeightedRandomSampler ensures each mini-batch has equal class representation.
+    # This is more effective than loss weighting alone because the model sees each
+    # class equally often per update rather than down-weighting majority classes.
+    sample_weights = [1.0 / label_counts[label] for label in train_dataset.labels]
+    sampler = WeightedRandomSampler(
+        weights=torch.DoubleTensor(sample_weights),
+        num_samples=len(sample_weights),
+        replacement=True
+    )
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+
+    label_array = np.array(train_dataset.labels)
+    unique_classes = np.unique(label_array)
+    computed_weights = compute_class_weight('balanced', classes=unique_classes, y=label_array)
+    class_weight_array = np.ones(5, dtype=np.float32)
+    for i, cls in enumerate(unique_classes):
+        class_weight_array[cls] = computed_weights[i]
+    class_weights = torch.FloatTensor(class_weight_array).to(device)
+
+    print("\nAuto-Computed Class Weights (balanced):")
     for i, (emotion, weight) in enumerate(zip(emotion_names, class_weights)):
-        print(f"  {emotion}: weight={weight:.2f}")
+        print(f"  {emotion}: weight={weight:.3f}  (count: {label_counts.get(i, 0)})")
     
-    # Create model with HIGHER dropout
+    # Create model — [256,128,64] gives sufficient capacity to separate 5 classes
+    # in 48D feature space. Overfitting is controlled by dropout=0.5, weight_decay=5e-4,
+    # and noise augmentation rather than shrinking capacity.
     model = VoiceEmotionModel(
         input_dim=48,
         num_classes=5,
         hidden_dims=[256, 128, 64],
-        dropout=0.5  # Increased from 0.3
+        dropout=0.5
     )
     model = model.to(device)
     
     # Loss with label smoothing
     criterion = LabelSmoothingCrossEntropy(smoothing=0.1, weight=class_weights)
     
-    # Optimizer with stronger weight decay
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    # Optimizer — lr=0.0003 converges to the best solution quickly (peaked at epoch 4
+    # in previous run). Higher weight_decay=5e-4 (vs 1e-4 before) adds stronger L2
+    # regularization to slow post-convergence overfitting.
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=5e-4)
     
-    # Cosine annealing scheduler
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, T_0=10, T_mult=2, eta_min=1e-5
+    # ReduceLROnPlateau: only decays when val macro F1 stops improving.
+    # Replaces CosineAnnealingWarmRestarts which would abruptly reset LR to
+    # the initial value mid-training and destabilize the converged model.
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='max', patience=8, factor=0.5, min_lr=1e-5, verbose=False
     )
     
     # Training loop
     best_val_acc = 0.0
-    best_happy_recall = 0.0
+    best_macro_f1 = 0.0
     patience_counter = 0
-    patience = 15
+    patience = 20
     
     model_save_path = Path(model_save_dir)
     model_save_path.mkdir(parents=True, exist_ok=True)
@@ -219,9 +263,11 @@ def train_balanced_model(
     print(f"Epochs: {epochs}")
     print(f"Batch size: {batch_size}")
     print(f"Learning rate: {lr}")
+    print(f"Model dims: [256, 128, 64]")
     print(f"Dropout: 0.5 (high regularization)")
-    print(f"Weight decay: 1e-4")
+    print(f"Weight decay: 5e-4 (stronger L2)")
     print(f"Label smoothing: 0.1")
+    print(f"Feature augmentation: Gaussian noise std=0.1 (training only)")
     print(f"{'='*70}\n")
     
     for epoch in range(epochs):
@@ -284,11 +330,7 @@ def train_balanced_model(
         
         val_loss /= len(val_loader)
         val_acc = 100 * val_correct / val_total
-        
-        # Learning rate scheduling
-        scheduler.step()
-        current_lr = optimizer.param_groups[0]['lr']
-        
+
         # Calculate per-class metrics
         from sklearn.metrics import classification_report, confusion_matrix
         report = classification_report(
@@ -297,16 +339,19 @@ def train_balanced_model(
             output_dict=True,
             zero_division=0
         )
-        
-        happy_recall = report['happy']['recall']
-        happy_precision = report['happy']['precision']
-        
+
+        macro_f1 = report['macro avg']['f1-score']
+
+        # Learning rate scheduling — step on macro F1 (higher = better)
+        scheduler.step(macro_f1)
+        current_lr = optimizer.param_groups[0]['lr']
+
         print(f"\nEpoch {epoch+1}/{epochs}:")
         print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
         print(f"  Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%")
         print(f"  Learning Rate: {current_lr:.6f}")
-        print(f"  Happy: Precision={happy_precision:.2%}, Recall={happy_recall:.2%}")
-        
+        print(f"  Macro F1: {macro_f1:.4f}")
+
         # Print full classification report every 5 epochs
         if (epoch + 1) % 5 == 0:
             report_str = classification_report(
@@ -316,18 +361,15 @@ def train_balanced_model(
             )
             print("\nValidation Classification Report:")
             print(report_str)
-        
-        # Save best model (prioritize happy recall + overall accuracy)
-        combined_metric = val_acc + (happy_recall * 50)  # Weight happy recall heavily
-        best_combined = best_val_acc + (best_happy_recall * 50)
-        
-        if combined_metric > best_combined:
+
+        # Save best model using macro F1 — unbiased across all classes
+        if macro_f1 > best_macro_f1:
             best_val_acc = val_acc
-            best_happy_recall = happy_recall
+            best_macro_f1 = macro_f1
             patience_counter = 0
-            
+
             torch.save(model.state_dict(), model_save_path / 'emotion_model_best_balanced.pth')
-            print(f"✅ New best model! Val Acc: {val_acc:.2f}%, Happy Recall: {happy_recall:.2%}")
+            print(f"✅ New best model! Val Acc: {val_acc:.2f}%, Macro F1: {macro_f1:.4f}")
         else:
             patience_counter += 1
             print(f"⏳ No improvement. Patience: {patience_counter}/{patience}")
@@ -340,11 +382,11 @@ def train_balanced_model(
     print(f"\n{'='*70}")
     print(f"TRAINING COMPLETE!")
     print(f"Best Validation Accuracy: {best_val_acc:.2f}%")
-    print(f"Best Happy Recall: {best_happy_recall:.2%}")
+    print(f"Best Macro F1: {best_macro_f1:.4f}")
     print(f"Model saved to: {model_save_path / 'emotion_model_best_balanced.pth'}")
     print(f"{'='*70}\n")
-    
-    return best_val_acc, best_happy_recall
+
+    return best_val_acc, best_macro_f1
 
 
 # ============================================
@@ -367,7 +409,7 @@ if __name__ == "__main__":
     # Train balanced model
     model_save_dir = project_root / 'models' / 'voice_emotion'
     
-    best_acc, best_happy = train_balanced_model(
+    best_acc, best_f1 = train_balanced_model(
         train_paths,
         val_paths,
         model_save_dir,
@@ -375,10 +417,10 @@ if __name__ == "__main__":
         batch_size=32,
         lr=0.0003
     )
-    
+
     print(f"\n🎉 Final results:")
     print(f"  Validation accuracy: {best_acc:.2f}%")
-    print(f"  Happy recall: {best_happy:.2%}")
+    print(f"  Macro F1: {best_f1:.4f}")
     print(f"\nNext steps:")
     print(f"  1. Test: python diagnostics/test_happy_audio.py")
     print(f"  2. If happy recall > 80% and val acc > 45%, use this model")

@@ -37,9 +37,9 @@ from queue import Queue
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from training.model import EmotionCNN
+from training.model import EmotionCNN, EmotionCNNDeep
 from training.preprocessing import preprocess_face
-from training.voice.audio_preprocessing import normalize_audio
+from training.voice.audio_preprocessing import normalize_audio, preprocess_audio
 from training.voice.feature_extraction import extract_all_features, extract_stress_score
 from training.voice.voice_emotion_model import VoiceEmotionSystem
 from inference.phase3_multimodal_fusion import Phase3MultiModalFusion, format_psychological_state
@@ -69,6 +69,7 @@ class Config:
     VOICE_IMPROVED = VOICE_MODEL_ROOT / "emotion_model_best_improved.pth"
     VOICE_ORIGINAL = VOICE_MODEL_ROOT / "emotion_model_best.pth"
     STRESS_MODEL = VOICE_MODEL_ROOT / "stress_model_best.pth"
+    VOICE_SCALER = VOICE_MODEL_ROOT / "feature_scaler.pkl"
     
     if VOICE_BALANCED.exists():
         VOICE_EMOTION_MODEL = VOICE_BALANCED
@@ -108,8 +109,12 @@ class FaceEmotionDetector:
         self.num_classes = config['num_classes']
         self.class_names = config['class_names']
         
+        _arch = config.get('architecture', 'EmotionCNN')
+        _ARCH_MAP = {'EmotionCNNDeep': EmotionCNNDeep, 'EmotionCNN': EmotionCNN}
+        _MainModelClass = _ARCH_MAP.get(_arch, EmotionCNN)
+        
         # Load main model
-        self.main_model = EmotionCNN(num_classes=self.num_classes, input_size=48)
+        self.main_model = _MainModelClass(num_classes=self.num_classes, input_size=48)
         self.main_model.load_state_dict(torch.load(main_model_path, map_location=self.device))
         self.main_model.to(self.device)
         self.main_model.eval()
@@ -189,7 +194,18 @@ class VoiceEmotionDetector:
         
         self.system.to(self.device)
         self.system.eval()
-        
+
+        # Load feature scaler (fitted during training on 48-dim features).
+        # Without this the raw feature magnitudes differ from training distribution.
+        self.scaler = None
+        scaler_path = Config.VOICE_SCALER
+        if scaler_path.exists():
+            try:
+                import joblib
+                self.scaler = joblib.load(scaler_path)
+            except Exception as e:
+                print(f"[WARN] Could not load voice feature scaler: {e}")
+
         # Audio buffer
         self.audio_buffer = deque(maxlen=Config.AUDIO_BUFFER_SIZE)
         
@@ -224,7 +240,13 @@ class VoiceEmotionDetector:
             # Ensure correct shape (48 features)
             if features.shape[0] != 48:
                 return 'neutral', 0.5, 'low', 0.5, 0.5
-            
+
+            # Apply the same StandardScaler used during training.
+            # Raw feature values span very different ranges (pitch ~100-300 Hz,
+            # MFCCs ~-300 to +300) which causes model to rely on magnitude outliers.
+            if self.scaler is not None:
+                features = self.scaler.transform(features.reshape(1, -1)).flatten()
+
             features_tensor = torch.FloatTensor(features).unsqueeze(0).to(self.device)
             
             # Extract stress-specific features (4 values)

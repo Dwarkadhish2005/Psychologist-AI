@@ -30,7 +30,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Import custom modules
-from model import EmotionCNN, count_parameters
+from model import EmotionCNN, EmotionCNNDeep, count_parameters
 from preprocessing import get_train_transforms, get_val_transforms
 
 
@@ -52,13 +52,13 @@ class Config:
     CLASS_NAMES = None  # Will be auto-detected from dataset
     
     # Training
-    BATCH_SIZE = 32
-    NUM_EPOCHS = 50
+    BATCH_SIZE = 128         # larger batch → fewer steps/epoch → faster on CPU
+    NUM_EPOCHS = 80          # more budget; early stopping will cut short if needed
     LEARNING_RATE = 0.001
     WEIGHT_DECAY = 1e-4
-    
+
     # Early stopping
-    PATIENCE = 10
+    PATIENCE = 15            # was 10; deeper model + augmentation needs more warmup time
     
     # Device
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -341,26 +341,44 @@ def main():
         transform=val_transform
     )
     
-    train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=2)
-    test_loader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=8, persistent_workers=True)
+    val_loader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=4, persistent_workers=True)
+    test_loader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=4, persistent_workers=True)
     
     # Auto-detect number of classes and class names from dataset
     config.NUM_CLASSES = len(train_dataset.classes)
     config.CLASS_NAMES = train_dataset.classes
     print(f"\n[OK] Detected {config.NUM_CLASSES} classes: {', '.join(config.CLASS_NAMES)}")
-    
+
     # ========== Build Model ==========
     print("\nBuilding model...")
-    model = EmotionCNN(num_classes=config.NUM_CLASSES, input_size=config.INPUT_SIZE)
+    # EmotionCNNDeep: 2 convs per block (64-128-256 filters), FC 512→256→N.
+    # ~800K params vs ~300K for EmotionCNN. More capacity to separate visually
+    # similar classes (sad↔neutral, fear↔angry) without overfitting on 48x48 input.
+    model = EmotionCNNDeep(num_classes=config.NUM_CLASSES, input_size=config.INPUT_SIZE)
     model = model.to(config.DEVICE)
     
     print(f"Model parameters: {count_parameters(model):,}")
     
     # ========== Loss & Optimizer ==========
-    criterion = nn.CrossEntropyLoss()
+    # Weighted cross-entropy: weight each class inversely proportional to its
+    # sample count. With disgust=111 and happy=1774 (16:1 ratio), unweighted
+    # loss ignores disgust/fear almost entirely. Weights force equal gradient
+    # contribution per class regardless of how many samples it has.
+    from collections import Counter
+    from sklearn.utils.class_weight import compute_class_weight
+    import numpy as np
+    label_array = np.array(train_dataset.labels)
+    unique_classes = np.unique(label_array)
+    computed_weights = compute_class_weight('balanced', classes=unique_classes, y=label_array)
+    class_weight_tensor = torch.FloatTensor(computed_weights).to(config.DEVICE)
+    print("\nClass weights (balanced):")
+    for cls, w in zip(config.CLASS_NAMES, class_weight_tensor):
+        count = Counter(train_dataset.labels)[config.CLASS_NAMES.index(cls)]
+        print(f"  {cls:<10} weight={w:.3f}  (n={count})")
+    criterion = nn.CrossEntropyLoss(weight=class_weight_tensor)
     optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE, weight_decay=config.WEIGHT_DECAY)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, factor=0.5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=5, factor=0.5)
     
     # ========== Training Loop ==========
     print(f"\nTraining for {config.NUM_EPOCHS} epochs...")
@@ -369,10 +387,12 @@ def main():
         'train_loss': [],
         'train_acc': [],
         'val_loss': [],
-        'val_acc': []
+        'val_acc': [],
+        'val_macro_f1': []
     }
-    
+
     best_val_acc = 0.0
+    best_macro_f1 = 0.0
     patience_counter = 0
     
     for epoch in range(config.NUM_EPOCHS):
@@ -381,29 +401,46 @@ def main():
         
         # Train
         train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, config.DEVICE)
-        
+
         # Validate
         val_loss, val_acc = validate(model, val_loader, criterion, config.DEVICE)
-        
-        # Update scheduler
-        scheduler.step(val_loss)
+
+        # Compute macro F1 on validation set
+        from sklearn.metrics import f1_score
+        model.eval()
+        val_preds, val_true = [], []
+        with torch.no_grad():
+            for inputs, labels in val_loader:
+                inputs = inputs.to(config.DEVICE)
+                outputs = model(inputs)
+                _, predicted = torch.max(outputs, 1)
+                val_preds.extend(predicted.cpu().numpy())
+                val_true.extend(labels.numpy())
+        val_macro_f1 = f1_score(val_true, val_preds, average='macro', zero_division=0)
+
+        # Update scheduler on macro F1 (not val_loss — loss is distorted by class weights)
+        scheduler.step(val_macro_f1)
         
         # Save history
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
         history['val_loss'].append(val_loss)
         history['val_acc'].append(val_acc)
-        
+        history['val_macro_f1'].append(val_macro_f1)
+
         print(f"\nResults:")
         print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
         print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.2f}%")
-        
-        # Save best model
-        if val_acc > best_val_acc:
+        print(f"  Macro F1:   {val_macro_f1:.4f}")
+
+        # Save best model on macro F1 — val_acc is dominated by happy/neutral
+        # (1774 samples each) and masks poor performance on disgust/fear.
+        if val_macro_f1 > best_macro_f1:
+            best_macro_f1 = val_macro_f1
             best_val_acc = val_acc
             patience_counter = 0
             torch.save(model.state_dict(), os.path.join(config.MODEL_DIR, 'emotion_cnn_best.pth'))
-            print(f"  Saved best model (val_acc: {val_acc:.2f}%)")
+            print(f"  Saved best model (macro_f1: {val_macro_f1:.4f}, val_acc: {val_acc:.2f}%)")
         else:
             patience_counter += 1
 
@@ -425,12 +462,12 @@ def main():
     
     print(f"\nTest Accuracy: {test_acc:.2f}%")
     print(f"Best Val Accuracy: {best_val_acc:.2f}%")
+    print(f"Best Macro F1:    {best_macro_f1:.4f}")
     
     # ========== Save Everything ==========
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Save final model
-    torch.save(model.state_dict(), os.path.join(config.MODEL_DIR, f'emotion_cnn_final_{timestamp}.pth'))
+    # (final-epoch snapshot removed — best checkpoint already saved during training)
     
     # Save labels
     labels_dict = {idx: name for idx, name in enumerate(config.CLASS_NAMES)}
@@ -442,8 +479,9 @@ def main():
         'input_size': [1, config.INPUT_SIZE, config.INPUT_SIZE],
         'num_classes': config.NUM_CLASSES,
         'class_names': config.CLASS_NAMES,
-        'architecture': 'EmotionCNN',
+        'architecture': 'EmotionCNNDeep',
         'best_val_acc': best_val_acc,
+        'best_macro_f1': best_macro_f1,
         'test_acc': test_acc,
         'timestamp': timestamp
     }

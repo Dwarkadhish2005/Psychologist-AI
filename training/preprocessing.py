@@ -104,14 +104,22 @@ def get_train_transforms(target_size=(48, 48)):
     return transforms.Compose([
         transforms.Resize(target_size),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(degrees=10),
+        transforms.RandomRotation(degrees=15),
         transforms.RandomAffine(
             degrees=0,
             translate=(0.1, 0.1),
-            scale=(0.9, 1.1)
+            scale=(0.85, 1.15),
+            shear=5
         ),
+        # Brightness/contrast jitter — effective even on grayscale images.
+        # Simulates different lighting conditions across subjects.
+        transforms.ColorJitter(brightness=0.3, contrast=0.3),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])  # Normalize to [-1, 1]
+        transforms.Normalize(mean=[0.5], std=[0.5]),
+        # RandomErasing masks out a random rectangle, forcing the model to
+        # not rely on any single facial region (e.g. always using the mouth for happy).
+        # Applied after ToTensor on the [0-1] normalized tensor.
+        transforms.RandomErasing(p=0.3, scale=(0.02, 0.15), ratio=(0.3, 3.3)),
     ])
 
 
