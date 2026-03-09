@@ -1,16 +1,11 @@
-"""
-SessionManager: wraps IntegratedPsychologistAI for use by FastAPI.
-
-Runs the camera + AI loop in a background thread.
-Exposes get_latest_frame() and get_latest_state() for MJPEG/WebSocket endpoints.
-"""
-
 import threading
 import time
 import sys
+import json
+import datetime as dt_module
 from pathlib import Path
 import numpy as np
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 import cv2
 
@@ -19,6 +14,11 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from inference.integrated_psychologist_ai import IntegratedPsychologistAI
+
+MEMORY_DIR = PROJECT_ROOT / "data" / "user_memory"
+MAX_ALERTS_STORED = 500
+ALERT_MIN_SEVERITY = 0.4      # only persist alerts at or above this severity
+ALERT_DEDUPE_SECONDS = 30      # same type can't fire more than once per 30 s
 
 
 class SessionManager:
@@ -43,6 +43,9 @@ class SessionManager:
         self._active_user_id: Optional[str] = None
         self._frame_count = 0
         self._start_time: Optional[float] = None
+        # Alert tracking
+        self._session_alerts: List[Dict[str, Any]] = []
+        self._last_alert_by_type: Dict[str, float] = {}  # type -> last timestamp
 
     # ------------------------------------------------------------------ #
     # Public API                                                           #
@@ -56,6 +59,16 @@ class SessionManager:
     def active_user_id(self) -> Optional[str]:
         return self._active_user_id
 
+    @property
+    def session_duration(self) -> Optional[float]:
+        if self._running and self._start_time:
+            return round(time.time() - self._start_time, 1)
+        return None
+
+    @property
+    def frame_count(self) -> int:
+        return self._frame_count
+
     def start(self, user_id: str) -> None:
         """Initialize AI for user_id and start camera loop."""
         if self._running:
@@ -64,7 +77,8 @@ class SessionManager:
         self._active_user_id = user_id
         self._frame_count = 0
         self._start_time = time.time()
-
+        self._session_alerts = []
+        self._last_alert_by_type = {}
         # Init AI (loads models — may take a few seconds)
         self._ai = IntegratedPsychologistAI(user_id=user_id)
 
@@ -125,6 +139,10 @@ class SessionManager:
                     import traceback
                     traceback.print_exc()
 
+            # Persist alerts collected during this session
+            if self._session_alerts and self._active_user_id:
+                self._persist_alerts(self._active_user_id, self._session_alerts)
+
             self._ai = None
 
     def get_latest_frame(self) -> Optional[np.ndarray]:
@@ -172,7 +190,9 @@ class SessionManager:
                 with self._lock:
                     self._latest_frame = frame.copy()
                     if state:
-                        self._latest_state_dict = self._state_to_dict(state, phase4, fps)
+                        sd = self._state_to_dict(state, phase4, fps)
+                        self._latest_state_dict = sd
+                        self._accumulate_alerts(sd)
 
             except Exception as e:
                 print(f"[SessionManager] Frame processing error: {e}")
@@ -234,6 +254,50 @@ class SessionManager:
 
         return result
 
+    def _accumulate_alerts(self, state_dict: Dict[str, Any]) -> None:
+        """Collect significant deviation alerts during the session with deduplication."""
+        deviations = state_dict.get("deviations")
+        if not deviations:
+            return
+        now = time.time()
+        for dev in deviations:
+            alert_type = dev.get("type", "unknown")
+            severity = dev.get("severity", 0.0)
+            if severity < ALERT_MIN_SEVERITY:
+                continue
+            # Deduplicate: same type fires at most once per ALERT_DEDUPE_SECONDS
+            last_ts = self._last_alert_by_type.get(alert_type, 0)
+            if now - last_ts < ALERT_DEDUPE_SECONDS:
+                continue
+            self._last_alert_by_type[alert_type] = now
+            self._session_alerts.append({
+                "timestamp": now,
+                "session_date": dt_module.datetime.fromtimestamp(now).strftime("%Y-%m-%d"),
+                "type": alert_type,
+                "severity": round(severity, 3),
+                "description": dev.get("description", ""),
+                "context": {
+                    "mental_state": state_dict.get("mental_state", ""),
+                    "risk_level": state_dict.get("adjusted_risk") or state_dict.get("risk_level", ""),
+                },
+            })
 
-# Singleton used by all routers
+    def _persist_alerts(self, user_id: str, new_alerts: List[Dict[str, Any]]) -> None:
+        """Append new_alerts to the user's alerts file, capped at MAX_ALERTS_STORED."""
+        alerts_file = MEMORY_DIR / f"{user_id}_alerts.json"
+        existing: List[Dict[str, Any]] = []
+        if alerts_file.exists():
+            try:
+                with open(alerts_file, encoding="utf-8") as fh:
+                    existing = json.load(fh).get("alerts", [])
+            except Exception:
+                existing = []
+        combined = (existing + new_alerts)[-MAX_ALERTS_STORED:]
+        with open(alerts_file, "w", encoding="utf-8") as fh:
+            json.dump({"alerts": combined}, fh)
+        print(f"[SessionManager] Persisted {len(new_alerts)} alerts for {user_id}")
+
+
+# Module-level singleton used by all routers
 session_manager = SessionManager()
+

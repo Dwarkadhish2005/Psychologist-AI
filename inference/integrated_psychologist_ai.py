@@ -334,6 +334,17 @@ class AudioCaptureThread(threading.Thread):
 
 
 # ============================================
+# MODEL CACHE — prevents reloading heavy weights on every session start
+# ============================================
+
+_MODEL_CACHE: dict = {
+    "face_detector": None,
+    "voice_detector": None,
+    "loaded": False,
+}
+
+
+# ============================================
 # INTEGRATED SYSTEM
 # ============================================
 
@@ -356,22 +367,29 @@ class IntegratedPsychologistAI:
         print(f"\n👤 Active User: {user_id}")
         print("=" * 70)
         
-        # Initialize Phase 1 (Face)
-        self.face_detector = FaceEmotionDetector(
-            main_model_path=self.config.FACE_MAIN_MODEL,
-            specialist_model_path=self.config.FACE_SPECIALIST_MODEL,
-            config_path=self.config.FACE_CONFIG,
-            device=self.config.DEVICE
-        )
+        # Initialize Phase 1 (Face) — reuse cached instance when available
+        if not _MODEL_CACHE["loaded"]:
+            _MODEL_CACHE["face_detector"] = FaceEmotionDetector(
+                main_model_path=self.config.FACE_MAIN_MODEL,
+                specialist_model_path=self.config.FACE_SPECIALIST_MODEL,
+                config_path=self.config.FACE_CONFIG,
+                device=self.config.DEVICE
+            )
+            # Initialize Phase 2 (Voice)
+            _MODEL_CACHE["voice_detector"] = VoiceEmotionDetector(
+                emotion_model_path=self.config.VOICE_EMOTION_MODEL,
+                stress_model_path=self.config.STRESS_MODEL,
+                device=self.config.DEVICE
+            )
+            _MODEL_CACHE["loaded"] = True
+            print("[Model Cache] Models loaded and cached for this process.")
+        else:
+            print("[Model Cache] Reusing cached models — skipping reload.")
         
-        # Initialize Phase 2 (Voice)
-        self.voice_detector = VoiceEmotionDetector(
-            emotion_model_path=self.config.VOICE_EMOTION_MODEL,
-            stress_model_path=self.config.STRESS_MODEL,
-            device=self.config.DEVICE
-        )
+        self.face_detector = _MODEL_CACHE["face_detector"]
+        self.voice_detector = _MODEL_CACHE["voice_detector"]
         
-        # Initialize Phase 3 (Fusion)
+        # Initialize Phase 3 (Fusion) — stateful (emotion history), created fresh per session
         self.phase3 = Phase3MultiModalFusion()
         
         # Initialize Phase 4 (Cognitive Layer) with user-specific memory

@@ -24,6 +24,16 @@ class SessionStartRequest(BaseModel):
 class SessionStatus(BaseModel):
     is_running: bool
     active_user_id: Optional[str] = None
+    session_duration_seconds: Optional[float] = None
+    frame_count: Optional[int] = None
+
+
+class PinSet(BaseModel):
+    pin: str  # 4-8 character PIN
+
+
+class PinVerify(BaseModel):
+    pin: str
 
 
 class PersonalityData(BaseModel):

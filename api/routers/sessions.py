@@ -1,7 +1,3 @@
-"""
-Session start / stop / status router
-"""
-
 from fastapi import APIRouter, HTTPException
 
 from api.schemas import SessionStartRequest, SessionStatus
@@ -31,8 +27,10 @@ def stop_session():
 
 @router.get("/status", response_model=SessionStatus)
 def get_status():
-    """Return current session state."""
+    """Return current session state including elapsed time and frame count."""
     return SessionStatus(
         is_running=session_manager.is_running,
         active_user_id=session_manager.active_user_id,
+        session_duration_seconds=session_manager.session_duration,
+        frame_count=session_manager.frame_count,
     )

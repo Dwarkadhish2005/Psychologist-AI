@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, Users, Calendar, TrendingUp, Video } from 'lucide-react'
+import { Activity, Users, Calendar, TrendingUp, Video, CalendarDays } from 'lucide-react'
 import type { UserProfile } from '../types'
 import RiskBadge from '../components/RiskBadge'
 
@@ -72,6 +72,13 @@ export default function Dashboard() {
         >
           <TrendingUp size={16} />
           View Analytics
+        </Link>
+        <Link
+          to="/history"
+          className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          <CalendarDays size={16} />
+          Session History
         </Link>
       </div>
 
@@ -146,6 +153,12 @@ function UserCard({ user, summary }: { user: UserProfile; summary: any }) {
           className="flex-1 text-center text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 px-2 py-1.5 rounded-lg transition-colors"
         >
           Analytics
+        </Link>
+        <Link
+          to={`/history?user=${user.user_id}`}
+          className="flex-1 text-center text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 px-2 py-1.5 rounded-lg transition-colors"
+        >
+          History
         </Link>
       </div>
     </div>

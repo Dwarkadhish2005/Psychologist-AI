@@ -68,15 +68,46 @@ export interface DailyProfile {
   avg_high_stress_ratio: number
   avg_stress_intensity: number
   dominant_mental_states: [string, number][]
+  dominant_emotions?: [string, number][]
   avg_confidence: number
   avg_stability: number
+  confidence_trend?: string
+  stability_trend?: string
   avg_risk_level: number
   high_risk_duration_ratio: number
   total_risk_escalations: number
+  total_masking_events?: number
+  avg_masking_frequency?: number
+  masking_duration_ratio?: number
   positive_ratio: number
   negative_ratio: number
   neutral_ratio: number
+  state_switches_per_minute?: number
   emotional_volatility: number
 }
 
 export type RiskLevel = 'low' | 'moderate' | 'high' | 'critical'
+
+export interface SessionSummary {
+  session_id?: string
+  session_start: number
+  session_end?: number
+  session_duration: number          // seconds
+  dominant_mental_states: [string, number][]
+  dominant_emotions?: [string, number][]
+  stress_duration_ratio: number
+  high_stress_duration_ratio: number
+  avg_stress_intensity: number
+  avg_confidence: number
+  avg_stability: number
+  avg_risk_level: number
+  high_risk_duration_ratio: number
+  risk_escalations: number
+  total_masking_events: number
+  masking_duration_ratio: number
+  positive_emotion_ratio: number
+  negative_emotion_ratio: number
+  neutral_emotion_ratio: number
+  mental_state_switches: number
+  confidence_variance: number
+}

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Play, Square, AlertTriangle } from 'lucide-react'
+import { Play, Square, AlertTriangle, Info } from 'lucide-react'
 import type { EmotionState, UserProfile, PSVData } from '../types'
 import MentalStateCard from '../components/MentalStateCard'
 import PersonalityRadar from '../components/PersonalityRadar'
 import RiskBadge from '../components/RiskBadge'
+import PinModal, { checkPinRequired } from '../components/PinModal'
 
 export default function LiveAnalysis() {
   const [searchParams] = useSearchParams()
@@ -17,8 +18,14 @@ export default function LiveAnalysis() {
   const [psv, setPsv] = useState<PSVData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [explanations, setExplanations] = useState<string[]>([])
+  const [pinRequired, setPinRequired] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
+  const lastWsUpdateRef = useRef(0)
+  const isRunningRef = useRef(false)
+
+  // Keep isRunningRef in sync for WS reconnect closure
+  useEffect(() => { isRunningRef.current = isRunning }, [isRunning])
 
   // Load users
   useEffect(() => {
@@ -46,16 +53,21 @@ export default function LiveAnalysis() {
     if (wsRef.current) wsRef.current.close()
     const ws = new WebSocket(`ws://${window.location.hostname}:8000/ws/stream`)
     ws.onmessage = ev => {
+      // Throttle to max 5 updates/sec to prevent UI freeze
+      const now = Date.now()
+      if (now - lastWsUpdateRef.current < 200) return
+      lastWsUpdateRef.current = now
       const data: EmotionState = JSON.parse(ev.data)
       setState(data)
       if (data.explanations?.length) {
-        setExplanations(prev => {
-          const combined = [...data.explanations, ...prev]
-          return combined.slice(0, 12)
-        })
+        setExplanations(prev => [...data.explanations, ...prev].slice(0, 12))
       }
     }
     ws.onerror = () => setError('WebSocket connection failed')
+    ws.onclose = () => {
+      // Auto-reconnect if session is still running
+      if (isRunningRef.current) setTimeout(connectWS, 1500)
+    }
     wsRef.current = ws
   }
 
@@ -93,10 +105,29 @@ export default function LiveAnalysis() {
   // Cleanup on unmount
   useEffect(() => () => { wsRef.current?.close() }, [])
 
+  // PIN check on user change
+  useEffect(() => {
+    if (!selectedUser) return
+    checkPinRequired(selectedUser).then(req => {
+      if (req) setPinRequired(true)
+    })
+  }, [selectedUser])
+
+  const selectedProfile = users.find(u => u.user_id === selectedUser)
+  const isNewUser = selectedProfile && selectedProfile.total_sessions === 0
   const displayRisk = state?.adjusted_risk ?? state?.risk_level ?? 'low'
 
   return (
     <div className="p-8 space-y-6">
+      {/* PIN modal — shown when PIN is set for selected user */}
+      {pinRequired && selectedUser && (
+        <PinModal
+          userId={selectedUser}
+          onVerified={() => setPinRequired(false)}
+          onCancel={() => { setSelectedUser(''); setPinRequired(false) }}
+        />
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Live Analysis</h1>
@@ -139,6 +170,21 @@ export default function LiveAnalysis() {
         <div className="flex items-center gap-2 bg-red-900/40 border border-red-700 rounded-lg px-4 py-3 text-red-300 text-sm">
           <AlertTriangle size={16} />
           {error}
+        </div>
+      )}
+
+      {/* Onboarding banner for first-session users */}
+      {isNewUser && !isRunning && (
+        <div className="flex items-start gap-3 bg-indigo-900/30 border border-indigo-700/50 rounded-xl px-4 py-3 text-sm text-indigo-300">
+          <Info size={16} className="mt-0.5 flex-shrink-0 text-indigo-400" />
+          <div>
+            <p className="font-semibold">Welcome, {selectedProfile?.name}!</p>
+            <p className="mt-0.5 text-indigo-400/80">
+              This is your first session. The AI will spend the first few minutes
+              establishing a baseline personality profile. Results will be available
+              in Analytics once the session ends.
+            </p>
+          </div>
         </div>
       )}
 

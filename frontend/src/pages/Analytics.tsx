@@ -4,8 +4,10 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Legend,
 } from 'recharts'
+import { Download, FileText, Lock } from 'lucide-react'
 import type { UserProfile, PSVData, DailyProfile } from '../types'
 import PersonalityRadar from '../components/PersonalityRadar'
+import PinModal, { checkPinRequired } from '../components/PinModal'
 
 export default function Analytics() {
   const [searchParams] = useSearchParams()
@@ -15,10 +17,19 @@ export default function Analytics() {
   const [psv, setPsv] = useState<PSVData | null>(null)
   const [loading, setLoading] = useState(false)
   const [psvError, setPsvError] = useState<string | null>(null)
+  const [pinRequired, setPinRequired] = useState(false)
 
   useEffect(() => {
     fetch('/api/users/').then(r => r.json()).then(setUsers).catch(console.error)
   }, [])
+
+  // PIN check whenever selection changes
+  useEffect(() => {
+    if (!selectedUser) return
+    checkPinRequired(selectedUser).then(req => {
+      if (req) setPinRequired(true)
+    })
+  }, [selectedUser])
 
   useEffect(() => {
     if (!selectedUser) return
@@ -77,17 +88,55 @@ export default function Analytics() {
           <h1 className="text-2xl font-bold text-white">Analytics</h1>
           <p className="text-slate-400 text-sm mt-1">Historical mood, risk, and personality trends</p>
         </div>
-        <select
-          className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          value={selectedUser}
-          onChange={e => setSelectedUser(e.target.value)}
-        >
-          <option value="">— Select user —</option>
-          {users.map(u => (
-            <option key={u.user_id} value={u.user_id}>{u.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            value={selectedUser}
+            onChange={e => setSelectedUser(e.target.value)}
+          >
+            <option value="">— Select user —</option>
+            {users.map(u => (
+              <option key={u.user_id} value={u.user_id}>{u.name}</option>
+            ))}
+          </select>
+
+          {selectedUser && (
+            <>
+              <a
+                href={`/api/analytics/${selectedUser}/export/json`}
+                download
+                className="flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg transition-colors"
+              >
+                <Download size={13} /> JSON
+              </a>
+              <a
+                href={`/api/analytics/${selectedUser}/export/csv`}
+                download
+                className="flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg transition-colors"
+              >
+                <Download size={13} /> CSV
+              </a>
+              <a
+                href={`/api/analytics/${selectedUser}/report`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg transition-colors"
+              >
+                <FileText size={13} /> Report
+              </a>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* PIN modal */}
+      {pinRequired && selectedUser && (
+        <PinModal
+          userId={selectedUser}
+          onVerified={() => setPinRequired(false)}
+          onCancel={() => { setSelectedUser(''); setPinRequired(false) }}
+        />
+      )}
 
       {!selectedUser && (
         <div className="rounded-xl bg-slate-800/40 border border-slate-700 p-12 text-center text-slate-500 text-sm">
