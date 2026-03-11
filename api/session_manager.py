@@ -132,6 +132,43 @@ class SessionManager:
                                 ]
                                 p5.update_psv(recent_profiles)
 
+                                # Generate / refresh visualizations after PSV update
+                                try:
+                                    from inference.phase5_visualization import (
+                                        create_psv_radar_chart,
+                                        create_psv_trend_chart,
+                                        create_psv_bar_chart,
+                                        create_comprehensive_dashboard,
+                                    )
+                                    import matplotlib
+                                    matplotlib.use("Agg")  # non-interactive backend
+                                    import matplotlib.pyplot as plt
+
+                                    viz_dir = PROJECT_ROOT / "assets" / "reports" / "psv_visualizations"
+                                    viz_dir.mkdir(parents=True, exist_ok=True)
+                                    uid = self._active_user_id
+
+                                    create_psv_radar_chart(
+                                        p5.psv,
+                                        save_path=str(viz_dir / f"{uid}_radar.png"),
+                                    )
+                                    create_psv_trend_chart(
+                                        p5,
+                                        save_path=str(viz_dir / f"{uid}_trends.png"),
+                                    )
+                                    create_psv_bar_chart(
+                                        p5.psv,
+                                        save_path=str(viz_dir / f"{uid}_bars.png"),
+                                    )
+                                    create_comprehensive_dashboard(
+                                        p5,
+                                        save_path=str(viz_dir / f"{uid}_dashboard.png"),
+                                    )
+                                    plt.close("all")
+                                    print(f"[SessionManager] Visualizations updated → {viz_dir}")
+                                except Exception as viz_err:
+                                    print(f"[SessionManager] Visualization generation skipped: {viz_err}")
+
                         print(f"[SessionManager] Session saved for user {self._active_user_id}")
 
                 except Exception as e:

@@ -1,24 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Play, Square, AlertTriangle, Info } from 'lucide-react'
-import type { EmotionState, UserProfile, PSVData } from '../types'
+import { Play, Square, AlertTriangle } from 'lucide-react'
+import type { EmotionState, PSVData } from '../types'
 import MentalStateCard from '../components/MentalStateCard'
 import PersonalityRadar from '../components/PersonalityRadar'
 import RiskBadge from '../components/RiskBadge'
-import PinModal, { checkPinRequired } from '../components/PinModal'
+import { useAuth } from '../context/AuthContext'
 
 export default function LiveAnalysis() {
-  const [searchParams] = useSearchParams()
-  const preselectedUser = searchParams.get('user') ?? ''
+  const { user: authUser } = useAuth()
+  const selectedUser = authUser?.userId ?? ''
 
-  const [users, setUsers] = useState<UserProfile[]>([])
-  const [selectedUser, setSelectedUser] = useState(preselectedUser)
   const [isRunning, setIsRunning] = useState(false)
   const [state, setState] = useState<EmotionState | null>(null)
   const [psv, setPsv] = useState<PSVData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [explanations, setExplanations] = useState<string[]>([])
-  const [pinRequired, setPinRequired] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
   const lastWsUpdateRef = useRef(0)
@@ -27,14 +23,6 @@ export default function LiveAnalysis() {
   // Keep isRunningRef in sync for WS reconnect closure
   useEffect(() => { isRunningRef.current = isRunning }, [isRunning])
 
-  // Load users
-  useEffect(() => {
-    fetch('/api/users/')
-      .then(r => r.json())
-      .then(setUsers)
-      .catch(console.error)
-  }, [])
-
   // Check if there's already a running session
   useEffect(() => {
     fetch('/api/sessions/status')
@@ -42,7 +30,6 @@ export default function LiveAnalysis() {
       .then(s => {
         if (s.is_running) {
           setIsRunning(true)
-          if (s.active_user_id) setSelectedUser(s.active_user_id)
           connectWS()
         }
       })
@@ -105,29 +92,10 @@ export default function LiveAnalysis() {
   // Cleanup on unmount
   useEffect(() => () => { wsRef.current?.close() }, [])
 
-  // PIN check on user change
-  useEffect(() => {
-    if (!selectedUser) return
-    checkPinRequired(selectedUser).then(req => {
-      if (req) setPinRequired(true)
-    })
-  }, [selectedUser])
-
-  const selectedProfile = users.find(u => u.user_id === selectedUser)
-  const isNewUser = selectedProfile && selectedProfile.total_sessions === 0
   const displayRisk = state?.adjusted_risk ?? state?.risk_level ?? 'low'
 
   return (
     <div className="p-8 space-y-6">
-      {/* PIN modal — shown when PIN is set for selected user */}
-      {pinRequired && selectedUser && (
-        <PinModal
-          userId={selectedUser}
-          onVerified={() => setPinRequired(false)}
-          onCancel={() => { setSelectedUser(''); setPinRequired(false) }}
-        />
-      )}
-
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Live Analysis</h1>
@@ -136,18 +104,6 @@ export default function LiveAnalysis() {
 
         {/* Controls */}
         <div className="flex items-center gap-3">
-          <select
-            className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            value={selectedUser}
-            onChange={e => setSelectedUser(e.target.value)}
-            disabled={isRunning}
-          >
-            <option value="">— Select user —</option>
-            {users.map(u => (
-              <option key={u.user_id} value={u.user_id}>{u.name}</option>
-            ))}
-          </select>
-
           {!isRunning ? (
             <button
               onClick={startSession}
@@ -173,21 +129,6 @@ export default function LiveAnalysis() {
         </div>
       )}
 
-      {/* Onboarding banner for first-session users */}
-      {isNewUser && !isRunning && (
-        <div className="flex items-start gap-3 bg-indigo-900/30 border border-indigo-700/50 rounded-xl px-4 py-3 text-sm text-indigo-300">
-          <Info size={16} className="mt-0.5 flex-shrink-0 text-indigo-400" />
-          <div>
-            <p className="font-semibold">Welcome, {selectedProfile?.name}!</p>
-            <p className="mt-0.5 text-indigo-400/80">
-              This is your first session. The AI will spend the first few minutes
-              establishing a baseline personality profile. Results will be available
-              in Analytics once the session ends.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Main grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Video feed — 2 cols wide */}
@@ -202,7 +143,7 @@ export default function LiveAnalysis() {
             ) : (
               <div className="text-center text-slate-500 space-y-2">
                 <div className="text-5xl">📷</div>
-                <p className="text-sm">Select a user and press <strong>Start Session</strong></p>
+                <p className="text-sm">Press <strong>Start Session</strong> to begin</p>
               </div>
             )}
 

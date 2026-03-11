@@ -155,8 +155,21 @@ data/**/*.png
 data/**/*.wav
 data/**/*.mp3
 data/**/*.mp4
+
+# Ignore CSVs/JSONs in raw dataset folders, but keep user/app data
 data/**/*.csv
+!data/user_memory/*.csv
+!data/demo_memory/*.csv
+!data/test_memory/*.csv
+
 data/**/*.json
+!data/user_memory/*.json
+!data/demo_memory/*.json
+!data/test_memory/*.json
+!data/voice_emotion/dataset_metadata.json
+
+# Feature cache — generated at runtime, never commit
+data/voice_emotion/feature_cache/
 
 # Trained models (too large for git)
 models/*.pth

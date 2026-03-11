@@ -4,7 +4,7 @@ import {
   Brain, Shield, ClipboardList, UserCircle,
   Eye, EyeOff, AlertCircle, ArrowRight, RefreshCw,
   Activity, Users, Monitor, Bell, StopCircle,
-  Calendar, BarChart2, FileText, TrendingUp,
+  Calendar, BarChart2, FileText, TrendingUp, UserPlus, X, CheckCircle,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -78,7 +78,7 @@ const FEAT_ICONS: Record<string, React.ElementType> = {
 
 // â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function LandingPage() {
-  const { user, loginAdmin, loginTherapist, loginUser } = useAuth()
+  const { user, loginAdmin, loginTherapist, loginUserWithCredentials, registerNewUser } = useAuth()
   const navigate = useNavigate()
 
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
@@ -88,10 +88,15 @@ export default function LandingPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // For user (patient) login
-  const [apiUsers, setApiUsers] = useState<{ user_id: string; name: string }[]>([])
-  const [selectedUserId, setSelectedUserId] = useState('')
-  const [usersLoadError, setUsersLoadError] = useState('')
+  // Register modal state
+  const [showRegister, setShowRegister] = useState(false)
+  const [regName, setRegName] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regShowPw, setRegShowPw] = useState(false)
+  const [regError, setRegError] = useState('')
+  const [regLoading, setRegLoading] = useState(false)
+  const [regSuccess, setRegSuccess] = useState(false)
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -101,20 +106,9 @@ export default function LandingPage() {
     else navigate('/user', { replace: true })
   }, [user, navigate])
 
-  // Fetch patient list when user role is selected
-  useEffect(() => {
-    if (selectedRole !== 'user') return
-    setUsersLoadError('')
-    fetch('/api/users/')
-      .then(r => r.json())
-      .then(setApiUsers)
-      .catch(() => setUsersLoadError('Could not load users. Make sure the API is running.'))
-  }, [selectedRole])
-
   function selectRole(role: Role) {
     setSelectedRole(role)
     setEmail(''); setPassword(''); setError('')
-    setSelectedUserId(''); setUsersLoadError('')
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -130,11 +124,29 @@ export default function LandingPage() {
       const res = await loginTherapist(email, password)
       if (!res.ok) setError(res.error ?? 'Login failed.')
     } else if (selectedRole === 'user') {
-      const u = apiUsers.find(x => x.user_id === selectedUserId)
-      if (!u) { setError('Please select a profile.'); setLoading(false); return }
-      loginUser(u.user_id, u.name)
+      const res = await loginUserWithCredentials(email, password)
+      if (!res.ok) setError(res.error ?? 'Login failed.')
     }
     setLoading(false)
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault()
+    setRegError('')
+    setRegLoading(true)
+    const res = await registerNewUser(regName, regEmail, regPassword)
+    if (res.ok) {
+      setRegSuccess(true)
+    } else {
+      setRegError(res.error ?? 'Registration failed.')
+    }
+    setRegLoading(false)
+  }
+
+  function openRegister() {
+    setRegName(''); setRegEmail(''); setRegPassword('')
+    setRegError(''); setRegSuccess(false); setRegShowPw(false)
+    setShowRegister(true)
   }
 
   const portal = selectedRole ? PORTALS.find(p => p.role === selectedRole)! : null
@@ -185,29 +197,39 @@ export default function LandingPage() {
             const isActive = selectedRole === p.role
             const isDimmed = selectedRole && !isActive
             return (
-              <button
-                key={p.role}
-                onClick={() => selectRole(p.role)}
-                className={`text-left rounded-2xl border bg-gradient-to-b ${p.gradient} p-5 transition-all duration-200 ${isActive ? p.activeRing : p.ring} ${isDimmed ? 'opacity-40' : ''}`}
-              >
-                <div className={`w-10 h-10 rounded-xl ${p.iconBg} flex items-center justify-center mb-3 transition-transform ${isActive ? 'scale-110' : ''}`}>
-                  <p.Icon size={20} className={p.iconColor} />
-                </div>
-                <p className={`font-bold text-sm mb-0.5 ${isActive ? 'text-white' : 'text-slate-200'}`}>{p.title}</p>
-                <p className="text-slate-400 text-xs mb-3">{p.subtitle}</p>
-                <ul className="space-y-1.5">
-                  {p.features.slice(0, 3).map(f => {
-                    const FIcon = FEAT_ICONS[f] ?? Activity
-                    return (
-                      <li key={f} className="flex items-center gap-2 text-xs text-slate-500">
-                        <FIcon size={11} className={isActive ? p.iconColor : 'text-slate-600'} />
-                        {f}
-                      </li>
-                    )
-                  })}
-                  {p.features.length > 3 && <li className="text-xs text-slate-700">+{p.features.length - 3} more</li>}
-                </ul>
-              </button>
+              <div key={p.role} className="flex flex-col gap-2">
+                <button
+                  onClick={() => selectRole(p.role)}
+                  className={`text-left rounded-2xl border bg-gradient-to-b ${p.gradient} p-5 transition-all duration-200 ${isActive ? p.activeRing : p.ring} ${isDimmed ? 'opacity-40' : ''}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl ${p.iconBg} flex items-center justify-center mb-3 transition-transform ${isActive ? 'scale-110' : ''}`}>
+                    <p.Icon size={20} className={p.iconColor} />
+                  </div>
+                  <p className={`font-bold text-sm mb-0.5 ${isActive ? 'text-white' : 'text-slate-200'}`}>{p.title}</p>
+                  <p className="text-slate-400 text-xs mb-3">{p.subtitle}</p>
+                  <ul className="space-y-1.5">
+                    {p.features.slice(0, 3).map(f => {
+                      const FIcon = FEAT_ICONS[f] ?? Activity
+                      return (
+                        <li key={f} className="flex items-center gap-2 text-xs text-slate-500">
+                          <FIcon size={11} className={isActive ? p.iconColor : 'text-slate-600'} />
+                          {f}
+                        </li>
+                      )
+                    })}
+                    {p.features.length > 3 && <li className="text-xs text-slate-700">+{p.features.length - 3} more</li>}
+                  </ul>
+                </button>
+                {p.role === 'user' && (
+                  <button
+                    onClick={openRegister}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-emerald-800/40 hover:border-emerald-600/70 bg-emerald-950/30 hover:bg-emerald-900/30 text-emerald-400 hover:text-emerald-300 text-xs font-medium py-2.5 px-4 transition-all duration-200"
+                  >
+                    <UserPlus size={13} />
+                    Register New User
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>
@@ -221,64 +243,40 @@ export default function LandingPage() {
               </div>
               <div>
                 <p className="text-white font-bold">{portal.title}</p>
-                <p className="text-slate-400 text-xs">
-                  {selectedRole === 'user' ? 'Select your profile to continue' : 'Enter your credentials below'}
-                </p>
+                <p className="text-slate-400 text-xs">Enter your credentials below</p>
               </div>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
-              {selectedRole !== 'user' ? (
-                <>
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1.5 font-medium">Email address</label>
-                    <input
-                      type="email" value={email} autoFocus
-                      onChange={e => { setEmail(e.target.value); setError('') }}
-                      placeholder={selectedRole === 'admin' ? 'Enter admin email' : 'therapist@clinic.com'}
-                      required
-                      className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1.5 font-medium">Password</label>
-                    <div className="relative">
-                      <input
-                        type={showPw ? 'text' : 'password'} value={password}
-                        onChange={e => { setPassword(e.target.value); setError('') }}
-                        placeholder="Enter password"
-                        required
-                        className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPw(v => !v)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                      >
-                        {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1.5 font-medium">Select your profile</label>
-                  {usersLoadError ? (
-                    <div className="flex items-start gap-2 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-xl px-4 py-3">
-                      <AlertCircle size={15} className="flex-shrink-0 mt-0.5" /> {usersLoadError}
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedUserId}
-                      onChange={e => { setSelectedUserId(e.target.value); setError('') }}
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-colors"
-                    >
-                      <option value="">â€” Who are you? â€”</option>
-                      {apiUsers.map(u => <option key={u.user_id} value={u.user_id}>{u.name}</option>)}
-                    </select>
-                  )}
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5 font-medium">Email address</label>
+                <input
+                  type="email" value={email} autoFocus
+                  onChange={e => { setEmail(e.target.value); setError('') }}
+                  placeholder={selectedRole === 'admin' ? 'Enter admin email' : selectedRole === 'therapist' ? 'therapist@clinic.com' : 'your@email.com'}
+                  required
+                  className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5 font-medium">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? 'text' : 'password'} value={password}
+                    onChange={e => { setPassword(e.target.value); setError('') }}
+                    placeholder="Enter password"
+                    required
+                    className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(v => !v)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
-              )}
+              </div>
 
               {error && (
                 <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-xl px-4 py-3">
@@ -292,22 +290,131 @@ export default function LandingPage() {
                 className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all ${portal.btnClass} disabled:opacity-60`}
               >
                 {loading
-                  ? <><RefreshCw size={15} className="animate-spin" /> Signing inâ€¦</>
+                  ? <><RefreshCw size={15} className="animate-spin" /> Signing in...</>
                   : <><ArrowRight size={15} /> Enter {portal.title}</>
                 }
               </button>
-            </form>
 
-            
+              {selectedRole === 'user' && (
+                <button
+                  type="button"
+                  onClick={openRegister}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-emerald-800/40 hover:border-emerald-600/70 bg-emerald-950/20 hover:bg-emerald-900/20 transition-all"
+                >
+                  <UserPlus size={13} /> New here? Register an account
+                </button>
+              )}
+            </form>
 
             <button
               onClick={() => setSelectedRole(null)}
               className="w-full mt-4 text-xs text-slate-700 hover:text-slate-400 transition-colors"
             >
-              
+              Back to role selection
             </button>
           </div>
         )}
+
+        {/* Register Modal */}
+        {showRegister && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-emerald-800/50 bg-[#0f1620] p-7 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600/20 flex items-center justify-center">
+                    <UserPlus size={20} className="text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold">Register New User</p>
+                    <p className="text-slate-400 text-xs">Create a new patient account</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRegister(false)}
+                  className="text-slate-600 hover:text-slate-300 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {regSuccess ? (
+                <div className="text-center py-6">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={28} className="text-emerald-400" />
+                  </div>
+                  <p className="text-white font-semibold mb-1">Account created!</p>
+                  <p className="text-slate-400 text-sm mb-5">You can now log in with your email and password.</p>
+                  <button
+                    onClick={() => { setShowRegister(false); setSelectedRole('user') }}
+                    className="flex items-center justify-center gap-2 mx-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                  >
+                    <ArrowRight size={14} /> Go to Login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5 font-medium">Full name</label>
+                    <input
+                      type="text" value={regName} autoFocus
+                      onChange={e => { setRegName(e.target.value); setRegError('') }}
+                      placeholder="Your name"
+                      required
+                      className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5 font-medium">Email address</label>
+                    <input
+                      type="email" value={regEmail}
+                      onChange={e => { setRegEmail(e.target.value); setRegError('') }}
+                      placeholder="you@example.com"
+                      required
+                      className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5 font-medium">Password</label>
+                    <div className="relative">
+                      <input
+                        type={regShowPw ? 'text' : 'password'} value={regPassword}
+                        onChange={e => { setRegPassword(e.target.value); setRegError('') }}
+                        placeholder="Min. 6 characters"
+                        required
+                        className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-600 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRegShowPw(v => !v)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        {regShowPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {regError && (
+                    <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-xl px-4 py-3">
+                      <AlertCircle size={15} className="flex-shrink-0" /> {regError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={regLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 transition-all"
+                  >
+                    {regLoading
+                      ? <><RefreshCw size={15} className="animate-spin" /> Creating account...</>
+                      : <><UserPlus size={15} /> Create Account</>
+                    }
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
 
       <footer className="relative z-10 text-center pb-5 text-xs text-slate-800">

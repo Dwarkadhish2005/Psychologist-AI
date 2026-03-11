@@ -1,0 +1,11 @@
+{
+  "datasets": [
+    "RAVDESS",
+    "TESS"
+  ],
+  "num_train": 1680,
+  "num_val": 1520,
+  "num_test": 300,
+  "balance_strategy": "equal",
+  "class_weights": {}
+}

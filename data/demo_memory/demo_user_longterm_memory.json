@@ -1,0 +1,74 @@
+{
+  "user_id": "demo_user",
+  "last_updated": "2026-01-10T20:09:41.411573",
+  "daily_profiles": {
+    "2026-01-10": {
+      "date": "2026-01-10",
+      "total_sessions": 2,
+      "total_duration_minutes": 0.29071178833643596,
+      "avg_stress_ratio": 0.0,
+      "avg_high_stress_ratio": 0.0,
+      "avg_stress_intensity": 0.0,
+      "dominant_mental_states": [
+        [
+          "calm",
+          0.6
+        ],
+        [
+          "stable_positive",
+          0.2
+        ],
+        [
+          "joyful",
+          0.2
+        ]
+      ],
+      "avg_confidence": 0.8000000000000002,
+      "avg_stability": 0.834,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 0,
+      "avg_masking_frequency": 0.0,
+      "masking_duration_ratio": 0.0,
+      "avg_risk_level": 0.0,
+      "high_risk_duration_ratio": 0.0,
+      "total_risk_escalations": 0,
+      "positive_ratio": 1.0,
+      "negative_ratio": 0.0,
+      "neutral_ratio": 0.0,
+      "state_switches_per_minute": 321.62579068444745,
+      "emotional_volatility": 0.0011599999999999987
+    }
+  },
+  "weekly_aggregates": {
+    "2026-01-05": {
+      "week_start": "2026-01-05",
+      "week_end": "2026-01-11",
+      "total_days_active": 1,
+      "total_sessions": 2,
+      "avg_daily_stress": 0.0,
+      "avg_daily_masking": 0.0,
+      "avg_daily_risk": 0.0,
+      "avg_daily_stability": 0.834,
+      "stress_trend": 0.0,
+      "masking_trend": 0.0,
+      "risk_trend": 0.0,
+      "stability_trend": 0.0,
+      "dominant_mental_states": [
+        [
+          "calm",
+          0.6
+        ],
+        [
+          "stable_positive",
+          0.2
+        ],
+        [
+          "joyful",
+          0.2
+        ]
+      ],
+      "dominant_emotions": []
+    }
+  }
+}

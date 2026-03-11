@@ -33,6 +33,8 @@ interface AuthContextValue {
   loginAdmin(email: string, pw: string): { ok: boolean; error?: string }
   loginTherapist(email: string, pw: string): Promise<{ ok: boolean; error?: string }>
   loginUser(userId: string, name: string): void
+  loginUserWithCredentials(email: string, pw: string): Promise<{ ok: boolean; error?: string }>
+  registerNewUser(name: string, email: string, pw: string): Promise<{ ok: boolean; error?: string }>
   logout(): void
   // Therapist management (admin-only)
   therapists: TherapistAccount[]
@@ -110,6 +112,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persistUser({ role: 'user', name, userId })
   }
 
+  async function loginUserWithCredentials(email: string, pw: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: pw }),
+      })
+      if (res.ok) {
+        const u = await res.json()
+        persistUser({ role: 'user', name: u.name, email: u.email, userId: u.user_id })
+        return { ok: true }
+      }
+      const err = await res.json()
+      return { ok: false, error: err.detail ?? 'Login failed.' }
+    } catch {
+      return { ok: false, error: 'Cannot reach server. Is the API running?' }
+    }
+  }
+
+  async function registerNewUser(name: string, email: string, pw: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password: pw }),
+      })
+      if (res.ok) {
+        return { ok: true }
+      }
+      const err = await res.json()
+      return { ok: false, error: err.detail ?? 'Registration failed.' }
+    } catch {
+      return { ok: false, error: 'Cannot reach server. Is the API running?' }
+    }
+  }
+
   function logout() { persistUser(null) }
 
   // ── Therapist CRUD (all persisted to disk via API) ─────────────────────────
@@ -151,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loginAdmin, loginTherapist, loginUser, logout,
+      user, loginAdmin, loginTherapist, loginUser, loginUserWithCredentials, registerNewUser, logout,
       therapists, therapistsLoading, refreshTherapists,
       addTherapist, toggleTherapist, deleteTherapist, resetTherapistPassword,
     }}>

@@ -1,0 +1,610 @@
+{
+  "user_id": "dwarkadhish_0947d1caefcb",
+  "last_updated": "2026-03-11T16:29:18.201901",
+  "daily_profiles": {
+    "2026-01-10": {
+      "date": "2026-01-10",
+      "total_sessions": 2,
+      "total_duration_minutes": 0.6776138663291931,
+      "avg_stress_ratio": 0.5423661071143085,
+      "avg_high_stress_ratio": 0.44686750599520386,
+      "avg_stress_intensity": 0.47482264188649076,
+      "dominant_mental_states": [
+        [
+          "overwhelmed",
+          0.34789668265387685
+        ],
+        [
+          "confused",
+          0.260691446842526
+        ],
+        [
+          "calm",
+          0.11930455635491606
+        ],
+        [
+          "emotionally_unstable",
+          0.09897082334132694
+        ],
+        [
+          "stressed",
+          0.09549860111910471
+        ]
+      ],
+      "avg_confidence": 0.07712127273190592,
+      "avg_stability": 0.9678387290167866,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 34,
+      "avg_masking_frequency": 50.07350057694036,
+      "masking_duration_ratio": 0.11992905675459632,
+      "avg_risk_level": 1.3502697841726619,
+      "high_risk_duration_ratio": 0.40395183852917665,
+      "total_risk_escalations": 17,
+      "positive_ratio": 0.14088729016786572,
+      "negative_ratio": 0.44686750599520386,
+      "neutral_ratio": 0.11285971223021582,
+      "dominant_emotions": [],
+      "state_switches_per_minute": 54.72224108763349,
+      "emotional_volatility": 0.0017417815292712878
+    },
+    "2026-01-11": {
+      "date": "2026-01-11",
+      "total_sessions": 5,
+      "total_duration_minutes": 4.698239254951478,
+      "avg_stress_ratio": 0.3623166949743647,
+      "avg_high_stress_ratio": 0.3072296144755896,
+      "avg_stress_intensity": 0.28686361533806515,
+      "dominant_mental_states": [
+        [
+          "emotionally_masked",
+          0.3497310286507848
+        ],
+        [
+          "emotionally_unstable",
+          0.25268360438526555
+        ],
+        [
+          "calm",
+          0.14256124705560702
+        ],
+        [
+          "confused",
+          0.09238569236572299
+        ],
+        [
+          "overwhelmed",
+          0.049170662546301834
+        ]
+      ],
+      "avg_confidence": 0.020515370346736745,
+      "avg_stability": 0.8996698665987723,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 1570,
+      "avg_masking_frequency": 299.18637247664367,
+      "masking_duration_ratio": 0.586318729582626,
+      "avg_risk_level": 1.3000143445376882,
+      "high_risk_duration_ratio": 0.47439816443340954,
+      "total_risk_escalations": 157,
+      "positive_ratio": 0.14256124705560702,
+      "negative_ratio": 0.3335014293770009,
+      "neutral_ratio": 0.3785462942481486,
+      "dominant_emotions": [
+        [
+          "neutral",
+          0.362020154411797
+        ],
+        [
+          "fear",
+          0.25034334897860033
+        ],
+        [
+          "happy",
+          0.14123724237268195
+        ],
+        [
+          "sad",
+          0.03812177502579979
+        ],
+        [
+          "angry",
+          0.0082774792111209
+        ]
+      ],
+      "state_switches_per_minute": 81.08141116634565,
+      "emotional_volatility": 0.0013507545246883145
+    },
+    "2026-03-06": {
+      "date": "2026-03-06",
+      "total_sessions": 1,
+      "total_duration_minutes": 4.342020670572917,
+      "avg_stress_ratio": 0.3156297420333839,
+      "avg_high_stress_ratio": 0.2372281234193222,
+      "avg_stress_intensity": 0.24532119372787053,
+      "dominant_mental_states": [
+        [
+          "confused",
+          0.5634800202326757
+        ],
+        [
+          "emotionally_unstable",
+          0.1573090541224077
+        ],
+        [
+          "overwhelmed",
+          0.07991906929691452
+        ],
+        [
+          "emotionally_masked",
+          0.07486090035407182
+        ],
+        [
+          "stressed",
+          0.07486090035407182
+        ]
+      ],
+      "avg_confidence": 0.003011691911147645,
+      "avg_stability": 0.9478401618614061,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 353,
+      "avg_masking_frequency": 81.29971563810741,
+      "masking_duration_ratio": 0.17855336368234698,
+      "avg_risk_level": 0.6135558927668184,
+      "high_risk_duration_ratio": 0.1294891249367729,
+      "total_risk_escalations": 106,
+      "positive_ratio": 0.03338391502276176,
+      "negative_ratio": 0.2407688416793121,
+      "neutral_ratio": 0.14972180070814364,
+      "dominant_emotions": [
+        [
+          "neutral",
+          0.8689934243803743
+        ],
+        [
+          "happy",
+          0.0834597875569044
+        ],
+        [
+          "fear",
+          0.03136064744562468
+        ],
+        [
+          "sad",
+          0.009104704097116844
+        ],
+        [
+          "angry",
+          0.0070814365199797676
+        ]
+      ],
+      "state_switches_per_minute": 56.425341698724104,
+      "emotional_volatility": 3.633183139181604e-05
+    },
+    "2026-03-07": {
+      "date": "2026-03-07",
+      "total_sessions": 1,
+      "total_duration_minutes": 4.3878754615783695,
+      "avg_stress_ratio": 0.7026619789050729,
+      "avg_high_stress_ratio": 0.617277749874435,
+      "avg_stress_intensity": 0.5722250125565044,
+      "dominant_mental_states": [
+        [
+          "emotionally_unstable",
+          0.45454545454545453
+        ],
+        [
+          "overwhelmed",
+          0.16273229532898043
+        ],
+        [
+          "confused",
+          0.16022099447513813
+        ],
+        [
+          "emotionally_masked",
+          0.09040683073832245
+        ],
+        [
+          "stressed",
+          0.053741838272225013
+        ]
+      ],
+      "avg_confidence": 0.003016743761564406,
+      "avg_stability": 0.814952285283777,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 894,
+      "avg_masking_frequency": 203.7440961962395,
+      "masking_duration_ratio": 0.4490205926670015,
+      "avg_risk_level": 1.3561024610748367,
+      "high_risk_duration_ratio": 0.3857358111501758,
+      "total_risk_escalations": 154,
+      "positive_ratio": 0.023103967855349072,
+      "negative_ratio": 0.6489201406328479,
+      "neutral_ratio": 0.14414866901054746,
+      "dominant_emotions": [
+        [
+          "neutral",
+          0.754394776494224
+        ],
+        [
+          "fear",
+          0.14063284781516824
+        ],
+        [
+          "happy",
+          0.06428930185836264
+        ],
+        [
+          "angry",
+          0.04018081366147665
+        ],
+        [
+          "sad",
+          0.0005022601707684581
+        ]
+      ],
+      "state_switches_per_minute": 76.57464368397022,
+      "emotional_volatility": 0.0001096843942333162
+    },
+    "2026-03-08": {
+      "date": "2026-03-08",
+      "total_sessions": 2,
+      "total_duration_minutes": 2.4777888377507526,
+      "avg_stress_ratio": 0.35788609813675926,
+      "avg_high_stress_ratio": 0.310598384988703,
+      "avg_stress_intensity": 0.3014556885074824,
+      "dominant_mental_states": [
+        [
+          "emotionally_masked",
+          0.581999311036586
+        ],
+        [
+          "emotionally_unstable",
+          0.18703077032188775
+        ],
+        [
+          "overwhelmed",
+          0.12356761466681526
+        ],
+        [
+          "calm",
+          0.05465607554281198
+        ],
+        [
+          "anxious",
+          0.046196010091287654
+        ]
+      ],
+      "avg_confidence": 0.026177526000491773,
+      "avg_stability": 0.9062888175158816,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 678,
+      "avg_masking_frequency": 276.4126454086804,
+      "masking_duration_ratio": 0.767667352252809,
+      "avg_risk_level": 2.0248330783493245,
+      "high_risk_duration_ratio": 0.9175726197833818,
+      "total_risk_escalations": 25,
+      "positive_ratio": 0.05465607554281198,
+      "negative_ratio": 0.35679439507999067,
+      "neutral_ratio": 0.5830910140933545,
+      "dominant_emotions": [
+        [
+          "fear",
+          0.6596571393833777
+        ],
+        [
+          "neutral",
+          0.24973150690483187
+        ],
+        [
+          "sad",
+          0.07532751091703056
+        ],
+        [
+          "happy",
+          0.015283842794759825
+        ]
+      ],
+      "state_switches_per_minute": 33.152732094528346,
+      "emotional_volatility": 0.0015019378143440966
+    },
+    "2026-03-09": {
+      "date": "2026-03-09",
+      "total_sessions": 2,
+      "total_duration_minutes": 1.4655945777893067,
+      "avg_stress_ratio": 0.39869281045751637,
+      "avg_high_stress_ratio": 0.24618736383442266,
+      "avg_stress_intensity": 0.3248366013071895,
+      "dominant_mental_states": [
+        [
+          "emotionally_masked",
+          0.4662309368191721
+        ],
+        [
+          "overwhelmed",
+          0.19607843137254902
+        ],
+        [
+          "anxious",
+          0.11764705882352941
+        ],
+        [
+          "confused",
+          0.08278867102396514
+        ],
+        [
+          "emotionally_unstable",
+          0.05010893246187364
+        ]
+      ],
+      "avg_confidence": 0.22170399917285855,
+      "avg_stability": 0.9762309368191722,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 150,
+      "avg_masking_frequency": 186.85780920189933,
+      "masking_duration_ratio": 0.644880174291939,
+      "avg_risk_level": 1.6721132897603486,
+      "high_risk_duration_ratio": 0.5816993464052287,
+      "total_risk_escalations": 28,
+      "positive_ratio": 0.026143790849673203,
+      "negative_ratio": 0.37037037037037035,
+      "neutral_ratio": 0.49455337690631807,
+      "dominant_emotions": [
+        [
+          "fear",
+          0.5686274509803921
+        ],
+        [
+          "neutral",
+          0.39106753812636164
+        ],
+        [
+          "happy",
+          0.03812636165577342
+        ],
+        [
+          "angry",
+          0.002178649237472767
+        ]
+      ],
+      "state_switches_per_minute": 28.852133485600564,
+      "emotional_volatility": 0.006160056381374453
+    },
+    "2026-03-11": {
+      "date": "2026-03-11",
+      "total_sessions": 1,
+      "total_duration_minutes": 0.5108353177706401,
+      "avg_stress_ratio": 0.34306569343065696,
+      "avg_high_stress_ratio": 0.19708029197080293,
+      "avg_stress_intensity": 0.24963503649635038,
+      "dominant_mental_states": [
+        [
+          "emotionally_masked",
+          0.5328467153284672
+        ],
+        [
+          "emotionally_unstable",
+          0.15328467153284672
+        ],
+        [
+          "anxious",
+          0.10218978102189781
+        ],
+        [
+          "calm",
+          0.08759124087591241
+        ],
+        [
+          "stressed",
+          0.043795620437956206
+        ]
+      ],
+      "avg_confidence": 0.008240542988272481,
+      "avg_stability": 0.9151094890510949,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 104,
+      "avg_masking_frequency": 203.58875751667497,
+      "masking_duration_ratio": 0.7591240875912408,
+      "avg_risk_level": 1.4087591240875912,
+      "high_risk_duration_ratio": 0.4306569343065693,
+      "total_risk_escalations": 10,
+      "positive_ratio": 0.08759124087591241,
+      "negative_ratio": 0.29927007299270075,
+      "neutral_ratio": 0.5766423357664233,
+      "dominant_emotions": [
+        [
+          "fear",
+          0.708029197080292
+        ],
+        [
+          "neutral",
+          0.2773722627737226
+        ],
+        [
+          "happy",
+          0.014598540145985401
+        ]
+      ],
+      "state_switches_per_minute": 54.812185113190864,
+      "emotional_volatility": 0.0004073053736819542
+    }
+  },
+  "weekly_aggregates": {
+    "2026-01-05": {
+      "week_start": "2026-01-05",
+      "week_end": "2026-01-11",
+      "total_days_active": 2,
+      "total_sessions": 7,
+      "avg_daily_stress": 0.4523414010443366,
+      "avg_daily_masking": 174.62993652679202,
+      "avg_daily_risk": 1.325142064355175,
+      "avg_daily_stability": 0.9337542978077795,
+      "stress_trend": -0.1800494121399439,
+      "masking_trend": 249.11287189970324,
+      "risk_trend": -0.050255439634974,
+      "stability_trend": -0.06816886241801441,
+      "dominant_mental_states": [
+        [
+          "overwhelmed",
+          0.39706734520017867
+        ],
+        [
+          "confused",
+          0.35307713920824896
+        ],
+        [
+          "emotionally_unstable",
+          0.3516544277265925
+        ],
+        [
+          "emotionally_masked",
+          0.3497310286507848
+        ],
+        [
+          "calm",
+          0.26186580341052307
+        ]
+      ],
+      "dominant_emotions": [
+        [
+          "neutral",
+          0.362020154411797
+        ],
+        [
+          "fear",
+          0.25034334897860033
+        ],
+        [
+          "happy",
+          0.14123724237268195
+        ],
+        [
+          "sad",
+          0.03812177502579979
+        ],
+        [
+          "angry",
+          0.0082774792111209
+        ]
+      ]
+    },
+    "2026-03-02": {
+      "week_start": "2026-03-02",
+      "week_end": "2026-03-08",
+      "total_days_active": 3,
+      "total_sessions": 4,
+      "avg_daily_stress": 0.4587259396917387,
+      "avg_daily_masking": 187.15215241434245,
+      "avg_daily_risk": 1.3314971440636598,
+      "avg_daily_stability": 0.8896937548870216,
+      "stress_trend": 0.021128178051687707,
+      "masking_trend": 97.5564648852865,
+      "risk_trend": 0.7056385927912531,
+      "stability_trend": -0.02077567217276222,
+      "dominant_mental_states": [
+        [
+          "emotionally_unstable",
+          0.7988852789897499
+        ],
+        [
+          "emotionally_masked",
+          0.7472670421289802
+        ],
+        [
+          "confused",
+          0.7237010147078139
+        ],
+        [
+          "overwhelmed",
+          0.3662189792927102
+        ],
+        [
+          "stressed",
+          0.12860273862629684
+        ]
+      ],
+      "dominant_emotions": [
+        [
+          "neutral",
+          1.8731197077794302
+        ],
+        [
+          "fear",
+          0.8316506346441705
+        ],
+        [
+          "happy",
+          0.16303293221002688
+        ],
+        [
+          "sad",
+          0.08493447518491587
+        ],
+        [
+          "angry",
+          0.04726225018145641
+        ]
+      ]
+    },
+    "2026-03-09": {
+      "week_start": "2026-03-09",
+      "week_end": "2026-03-15",
+      "total_days_active": 2,
+      "total_sessions": 3,
+      "avg_daily_stress": 0.37087925194408666,
+      "avg_daily_masking": 195.22328335928717,
+      "avg_daily_risk": 1.5404362069239699,
+      "avg_daily_stability": 0.9456702129351335,
+      "stress_trend": -0.055627117026859456,
+      "masking_trend": 16.730948314775617,
+      "risk_trend": -0.2633541656727574,
+      "stability_trend": -0.06112144776807744,
+      "dominant_mental_states": [
+        [
+          "emotionally_masked",
+          0.9990776521476392
+        ],
+        [
+          "anxious",
+          0.21983683984542723
+        ],
+        [
+          "emotionally_unstable",
+          0.20339360399472037
+        ],
+        [
+          "overwhelmed",
+          0.19607843137254902
+        ],
+        [
+          "calm",
+          0.08759124087591241
+        ]
+      ],
+      "dominant_emotions": [
+        [
+          "fear",
+          1.2766566480606842
+        ],
+        [
+          "neutral",
+          0.6684398009000843
+        ],
+        [
+          "happy",
+          0.05272490180175882
+        ],
+        [
+          "angry",
+          0.002178649237472767
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,2 @@
+Date,Total_Sessions,Duration_Minutes,Avg_Stress_Ratio,Avg_High_Stress_Ratio,Avg_Confidence,Avg_Stability,Total_Masking_Events,Avg_Risk_Level,High_Risk_Duration_Ratio,Positive_Ratio,Negative_Ratio,Dominant_Mental_State
+2026-01-10,8,80.0,0.3000,0.1000,0.7500,0.8000,160,0.5000,0.1000,0.6000,0.2000,calm

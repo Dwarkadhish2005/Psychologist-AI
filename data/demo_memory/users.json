@@ -1,0 +1,23 @@
+{
+  "alice_90806d704641": {
+    "user_id": "alice_90806d704641",
+    "name": "Alice",
+    "created_at": "2026-01-10T21:02:35.947313",
+    "last_active": "2026-01-10T21:02:35.947313",
+    "total_sessions": 2
+  },
+  "bob_dfa9e30a7acc": {
+    "user_id": "bob_dfa9e30a7acc",
+    "name": "Bob",
+    "created_at": "2026-01-10T21:02:35.947884",
+    "last_active": "2026-01-10T21:02:35.947884",
+    "total_sessions": 1
+  },
+  "charlie_7c390b9e7fda": {
+    "user_id": "charlie_7c390b9e7fda",
+    "name": "Charlie",
+    "created_at": "2026-01-10T21:02:35.948337",
+    "last_active": "2026-01-10T21:02:35.948337",
+    "total_sessions": 0
+  }
+}

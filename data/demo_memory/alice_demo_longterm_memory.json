@@ -1,0 +1,66 @@
+{
+  "user_id": "alice_demo",
+  "last_updated": "2026-01-10T21:02:36.012673",
+  "daily_profiles": {
+    "2026-01-10": {
+      "date": "2026-01-10",
+      "total_sessions": 1,
+      "total_duration_minutes": 30.0,
+      "avg_stress_ratio": 0.1,
+      "avg_high_stress_ratio": 0.02,
+      "avg_stress_intensity": 0.2,
+      "dominant_mental_states": [
+        [
+          "calm",
+          0.9
+        ],
+        [
+          "stressed",
+          0.1
+        ]
+      ],
+      "avg_confidence": 0.85,
+      "avg_stability": 0.9,
+      "confidence_trend": "stable",
+      "stability_trend": "stable",
+      "total_masking_events": 5,
+      "avg_masking_frequency": 0.5,
+      "masking_duration_ratio": 0.05,
+      "avg_risk_level": 0.2,
+      "high_risk_duration_ratio": 0.01,
+      "total_risk_escalations": 0,
+      "positive_ratio": 0.8,
+      "negative_ratio": 0.1,
+      "neutral_ratio": 0.1,
+      "state_switches_per_minute": 0.06666666666666667,
+      "emotional_volatility": 0.02
+    }
+  },
+  "weekly_aggregates": {
+    "2026-01-05": {
+      "week_start": "2026-01-05",
+      "week_end": "2026-01-11",
+      "total_days_active": 1,
+      "total_sessions": 1,
+      "avg_daily_stress": 0.1,
+      "avg_daily_masking": 0.5,
+      "avg_daily_risk": 0.2,
+      "avg_daily_stability": 0.9,
+      "stress_trend": 0.0,
+      "masking_trend": 0.0,
+      "risk_trend": 0.0,
+      "stability_trend": 0.0,
+      "dominant_mental_states": [
+        [
+          "calm",
+          0.9
+        ],
+        [
+          "stressed",
+          0.1
+        ]
+      ],
+      "dominant_emotions": []
+    }
+  }
+}

@@ -4,10 +4,9 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Legend,
 } from 'recharts'
-import { Download, FileText, Lock } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 import type { UserProfile, PSVData, DailyProfile } from '../types'
 import PersonalityRadar from '../components/PersonalityRadar'
-import PinModal, { checkPinRequired } from '../components/PinModal'
 
 export default function Analytics() {
   const [searchParams] = useSearchParams()
@@ -17,19 +16,10 @@ export default function Analytics() {
   const [psv, setPsv] = useState<PSVData | null>(null)
   const [loading, setLoading] = useState(false)
   const [psvError, setPsvError] = useState<string | null>(null)
-  const [pinRequired, setPinRequired] = useState(false)
 
   useEffect(() => {
     fetch('/api/users/').then(r => r.json()).then(setUsers).catch(console.error)
   }, [])
-
-  // PIN check whenever selection changes
-  useEffect(() => {
-    if (!selectedUser) return
-    checkPinRequired(selectedUser).then(req => {
-      if (req) setPinRequired(true)
-    })
-  }, [selectedUser])
 
   useEffect(() => {
     if (!selectedUser) return
@@ -128,15 +118,6 @@ export default function Analytics() {
           )}
         </div>
       </div>
-
-      {/* PIN modal */}
-      {pinRequired && selectedUser && (
-        <PinModal
-          userId={selectedUser}
-          onVerified={() => setPinRequired(false)}
-          onCancel={() => { setSelectedUser(''); setPinRequired(false) }}
-        />
-      )}
 
       {!selectedUser && (
         <div className="rounded-xl bg-slate-800/40 border border-slate-700 p-12 text-center text-slate-500 text-sm">

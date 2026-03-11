@@ -7,9 +7,10 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import type { UserProfile, DailyProfile, PSVData } from '../types'
+import type { DailyProfile, PSVData } from '../types'
 import RiskBadge from '../components/RiskBadge'
 import PersonalityRadar from '../components/PersonalityRadar'
+import { useAuth } from '../context/AuthContext'
 
 type UserTab = 'sessions' | 'analytics' | 'reports'
 
@@ -41,8 +42,8 @@ const TABS: { id: UserTab; label: string; icon: React.ElementType }[] = [
 
 export default function UserPortal() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [users, setUsers] = useState<UserProfile[]>([])
-  const [selectedUser, setSelectedUser] = useState(searchParams.get('user') ?? '')
+  const { user: authUser } = useAuth()
+  const selectedUser = authUser?.userId ?? ''
   const [history, setHistory] = useState<Record<string, DailyProfile>>({})
   const [psv, setPsv] = useState<PSVData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -53,13 +54,8 @@ export default function UserPortal() {
   function setTab(t: UserTab) {
     const next = new URLSearchParams(searchParams)
     next.set('tab', t)
-    if (selectedUser) next.set('user', selectedUser)
     setSearchParams(next)
   }
-
-  useEffect(() => {
-    fetch('/api/users/').then(r => r.json()).then(setUsers).catch(console.error)
-  }, [])
 
   useEffect(() => {
     if (!selectedUser) return
@@ -72,15 +68,6 @@ export default function UserPortal() {
       setPsv(psvData)
     }).finally(() => setLoading(false))
   }, [selectedUser])
-
-  function handleUserChange(uid: string) {
-    setSelectedUser(uid)
-    const next = new URLSearchParams(searchParams)
-    if (uid) next.set('user', uid); else next.delete('user')
-    setSearchParams(next)
-  }
-
-  const selectedProfile = users.find(u => u.user_id === selectedUser)
   const sortedEntries = Object.entries(history).sort(([a], [b]) => b.localeCompare(a))
 
   const chartData = [...sortedEntries].reverse().map(([date, d]) => ({
@@ -102,27 +89,16 @@ export default function UserPortal() {
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600/20 flex items-center justify-center">
-            <UserCircle size={20} className="text-emerald-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              {selectedProfile ? `Hello, ${selectedProfile.name} 👋` : 'User Portal'}
-            </h1>
-            <p className="text-slate-400 text-sm">Your sessions, wellness trends, and daily reports</p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-emerald-600/20 flex items-center justify-center">
+          <UserCircle size={20} className="text-emerald-400" />
         </div>
-
-        <select
-          value={selectedUser}
-          onChange={e => handleUserChange(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        >
-          <option value="">— Who are you? —</option>
-          {users.map(u => <option key={u.user_id} value={u.user_id}>{u.name}</option>)}
-        </select>
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            Hello, {authUser?.name ?? 'User'} 👋
+          </h1>
+          <p className="text-slate-400 text-sm">Your sessions, wellness trends, and daily reports</p>
+        </div>
       </div>
 
       {/* Tab bar */}
@@ -141,11 +117,11 @@ export default function UserPortal() {
         ))}
       </div>
 
-      {/* Empty state */}
+      {/* Empty state — no userId in auth (should not normally happen) */}
       {!selectedUser && (
         <div className="rounded-xl bg-slate-800/60 border border-slate-700 p-14 text-center">
           <UserCircle size={48} className="text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-400">Select your profile above to view your wellness data</p>
+          <p className="text-slate-400">Your session has expired. Please sign in again.</p>
         </div>
       )}
 

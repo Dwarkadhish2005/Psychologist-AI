@@ -12,7 +12,8 @@ from fastapi import APIRouter, HTTPException
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from inference.phase4_user_manager import UserManager
-from api.schemas import UserCreate, UserResponse, PinSet, PinVerify
+from api.schemas import UserCreate, UserResponse, PinSet, PinVerify, UserLogin, UserRegister, UserLoginResponse
+from api.auth import verify_user_credentials, register_user_credentials, email_exists
 
 router = APIRouter()
 _user_manager = UserManager(storage_dir="data/user_memory")
@@ -36,6 +37,36 @@ def _save_pins(pins: dict) -> None:
 def _hash_pin(user_id: str, pin: str) -> str:
     # Salted with user_id so same PIN yields different hashes per user
     return hashlib.sha256(f"{user_id}:{pin}".encode()).hexdigest()
+
+
+@router.post("/login", response_model=UserLoginResponse)
+def login_user(body: UserLogin):
+    """Login a user with email and password."""
+    user_id = verify_user_credentials(body.email.strip(), body.password)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    user = _user_manager.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User profile not found.")
+    return UserLoginResponse(user_id=user_id, name=user.name, email=body.email.strip().lower())
+
+
+@router.post("/register", response_model=UserLoginResponse, status_code=201)
+def register_user_with_credentials(body: UserRegister):
+    """Register a new user with name, email and password."""
+    name = body.name.strip()
+    email = body.email.strip().lower()
+    if not name:
+        raise HTTPException(status_code=422, detail="Name cannot be empty.")
+    if "@" not in email:
+        raise HTTPException(status_code=422, detail="Enter a valid email address.")
+    if len(body.password) < 6:
+        raise HTTPException(status_code=422, detail="Password must be at least 6 characters.")
+    if email_exists(email):
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+    user_id = _user_manager.register_user(name)
+    register_user_credentials(user_id, email, body.password)
+    return UserLoginResponse(user_id=user_id, name=name, email=email)
 
 
 @router.get("/", response_model=list[UserResponse])
