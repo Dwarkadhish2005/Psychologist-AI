@@ -6,6 +6,24 @@ import PersonalityRadar from '../components/PersonalityRadar'
 import RiskBadge from '../components/RiskBadge'
 import { useAuth } from '../context/AuthContext'
 
+function buildApiUrl(path: string): string {
+  const rawBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+  const base = rawBase?.trim().replace(/\/$/, '')
+  return base ? `${base}${path}` : path
+}
+
+function buildWsUrl(path: string): string {
+  const rawBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+  const base = rawBase?.trim().replace(/\/$/, '')
+  if (base) {
+    const api = new URL(base)
+    const wsProtocol = api.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${wsProtocol}//${api.host}${path}`
+  }
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${wsProtocol}//${window.location.host}${path}`
+}
+
 export default function LiveAnalysis() {
   const { user: authUser } = useAuth()
   const selectedUser = authUser?.userId ?? ''
@@ -17,6 +35,7 @@ export default function LiveAnalysis() {
   const [explanations, setExplanations] = useState<string[]>([])
 
   const wsRef = useRef<WebSocket | null>(null)
+  const pollingRef = useRef<number | null>(null)
   const lastWsUpdateRef = useRef(0)
   const isRunningRef = useRef(false)
 
@@ -36,24 +55,57 @@ export default function LiveAnalysis() {
       .catch(console.error)
   }, [])
 
+  function stopPolling() {
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+  }
+
+  function applyIncomingState(data: EmotionState) {
+    setState(data)
+    if (data.explanations?.length) {
+      setExplanations(prev => [...data.explanations, ...prev].slice(0, 12))
+    }
+  }
+
+  function startPollingFallback() {
+    if (pollingRef.current !== null) return
+    pollingRef.current = window.setInterval(async () => {
+      try {
+        const res = await fetch(buildApiUrl('/api/stream/state'))
+        if (!res.ok) return
+        const data: EmotionState = await res.json()
+        applyIncomingState(data)
+      } catch {
+        // Keep retrying while session is running
+      }
+    }, 500)
+  }
+
   function connectWS() {
+    stopPolling()
     if (wsRef.current) wsRef.current.close()
-    const ws = new WebSocket(`ws://${window.location.hostname}:8000/ws/stream`)
+    const wsUrl = buildWsUrl('/ws/stream')
+    const ws = new WebSocket(wsUrl)
     ws.onmessage = ev => {
       // Throttle to max 5 updates/sec to prevent UI freeze
       const now = Date.now()
       if (now - lastWsUpdateRef.current < 200) return
       lastWsUpdateRef.current = now
       const data: EmotionState = JSON.parse(ev.data)
-      setState(data)
-      if (data.explanations?.length) {
-        setExplanations(prev => [...data.explanations, ...prev].slice(0, 12))
-      }
+      applyIncomingState(data)
     }
-    ws.onerror = () => setError('WebSocket connection failed')
+    ws.onerror = () => {
+      setError(`WebSocket connection failed (${wsUrl}), using HTTP fallback`)
+      startPollingFallback()
+    }
     ws.onclose = () => {
       // Auto-reconnect if session is still running
-      if (isRunningRef.current) setTimeout(connectWS, 1500)
+      if (isRunningRef.current) {
+        startPollingFallback()
+        setTimeout(connectWS, 1500)
+      }
     }
     wsRef.current = ws
   }
@@ -86,11 +138,15 @@ export default function LiveAnalysis() {
     await fetch('/api/sessions/stop', { method: 'POST' })
     setIsRunning(false)
     wsRef.current?.close()
+    stopPolling()
     setState(null)
   }
 
   // Cleanup on unmount
-  useEffect(() => () => { wsRef.current?.close() }, [])
+  useEffect(() => () => {
+    wsRef.current?.close()
+    stopPolling()
+  }, [])
 
   const displayRisk = state?.adjusted_risk ?? state?.risk_level ?? 'low'
 
@@ -136,7 +192,7 @@ export default function LiveAnalysis() {
           <div className="rounded-xl overflow-hidden bg-slate-900 border border-slate-700 aspect-video relative flex items-center justify-center">
             {isRunning ? (
               <img
-                src="http://localhost:8000/api/video/feed"
+                src={buildApiUrl('/api/video/feed')}
                 alt="Live feed"
                 className="w-full h-full object-contain"
               />

@@ -14,7 +14,7 @@ echo.
 cd /d "%~dp0"
 
 :: Activate venv and start backend in a new window
-start "Psych AI - Backend" cmd /k "call .venv\Scripts\activate && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload"
+start "Psych AI - Backend" cmd /k "call .venv\Scripts\activate && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
 :: Start frontend in a new window
 start "Psych AI - Frontend" cmd /k "cd frontend && npm run dev"

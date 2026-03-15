@@ -14,11 +14,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 
 # -- Config ------------------------------------------------------------------
-SECRET_KEY = "psych-ai-secret-key-change-in-production-2026"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "psych-ai-secret-key-change-in-production-2026")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "24"))
 
-USER_CREDS_FILE = Path("data/user_memory/user_credentials.json")
+USER_CREDS_FILE = Path(os.getenv("USER_CREDS_FILE", "data/user_memory/user_credentials.json"))
 
 bearer_scheme = HTTPBearer(auto_error=False)
 

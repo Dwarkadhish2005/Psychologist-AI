@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  Legend, Label,
 } from 'recharts'
 import type { DailyProfile, PSVData } from '../types'
 import RiskBadge from '../components/RiskBadge'
@@ -242,9 +243,14 @@ export default function UserPortal() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="#1e293b" />
-                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]} />
+                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false}>
+                    <Label value="Day (MM-DD)" offset={-2} position="insideBottom" fill="#94a3b8" style={{ fontSize: '11px' }} />
+                  </XAxis>
+                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]}>
+                    <Label value="Score (%)" angle={-90} position="insideLeft" fill="#94a3b8" style={{ fontSize: '11px', textAnchor: 'middle' }} />
+                  </YAxis>
                   <Tooltip {...TOOLTIP} formatter={(v: number) => [`${v}%`]} />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '12px', color: '#cbd5e1' }} />
                   <Area type="monotone" dataKey="stress"   name="Stress"        stroke="#f59e0b" fill="url(#gS)" strokeWidth={2} dot={false} />
                   <Area type="monotone" dataKey="positive" name="Positive Mood" stroke="#10b981" fill="url(#gP)" strokeWidth={2} dot={false} />
                 </AreaChart>

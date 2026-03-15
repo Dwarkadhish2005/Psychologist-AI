@@ -45,6 +45,13 @@ async def video_feed():
     )
 
 
+@router.get("/api/stream/state")
+async def latest_state():
+    """Return latest psychological state for clients that cannot use WebSocket."""
+    state = session_manager.get_latest_state()
+    return state or {"status": "waiting"}
+
+
 # ------------------------------------------------------------------ #
 # WebSocket real-time state stream                                      #
 # ------------------------------------------------------------------ #
