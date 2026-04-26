@@ -171,6 +171,10 @@ data/user_memory/
 assets/reports/psv_visualizations/
 logs/
 
+# Personal documentation and reference files
+ULTRA_TECHNICAL_REFERENCE.md
+INTERVIEW_PREPARATION_GUIDE.md
+
 # Feature cache — generated at runtime, never commit
 data/voice_emotion/feature_cache/
 
