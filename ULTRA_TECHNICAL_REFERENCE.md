@@ -362,10 +362,12 @@ transforms.Compose([
 
 **Method:** `cv2.CascadeClassifier` with `haarcascade_frontalface_default.xml`
 
-**Parameters:**
-- `scaleFactor=1.3` — Image pyramid scaling factor (30% size reduction per level)
+**Parameters (live inference — `integrated_psychologist_ai.py`):**
+- `scaleFactor=1.1` — Image pyramid scaling factor (10% size reduction per level; finer pyramid steps → more accurate detection at a minor speed cost)
 - `minNeighbors=5` — Quality threshold (how many overlapping detections needed)
 - `minSize=(30, 30)` — Minimum face size to detect
+
+> **Note:** The `detect_faces_haar()` utility function in `preprocessing.py` defaults to `scaleFactor=1.3` (the original value). The live inference system (`integrated_psychologist_ai.py`, line 140) was updated to `scaleFactor=1.1` for better detection accuracy. These two values coexist in the codebase — `1.3` is the utility default, `1.1` is what actually runs in production.
 
 **Why Haar Cascade?**
 - Bundled with OpenCV, zero extra dependencies
