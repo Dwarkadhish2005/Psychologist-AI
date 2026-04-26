@@ -156,17 +156,20 @@ data/**/*.wav
 data/**/*.mp3
 data/**/*.mp4
 
-# Ignore CSVs/JSONs in raw dataset folders, but keep user/app data
+# Ignore CSVs/JSONs in raw dataset folders. Do not commit user data.
 data/**/*.csv
-!data/user_memory/*.csv
 !data/demo_memory/*.csv
 !data/test_memory/*.csv
 
 data/**/*.json
-!data/user_memory/*.json
 !data/demo_memory/*.json
 !data/test_memory/*.json
 !data/voice_emotion/dataset_metadata.json
+
+# CRITICAL: Always ignore real user data
+data/user_memory/
+assets/reports/psv_visualizations/
+logs/
 
 # Feature cache — generated at runtime, never commit
 data/voice_emotion/feature_cache/
